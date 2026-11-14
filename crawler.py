@@ -20,6 +20,7 @@ from config import (
     BASE_CITY_URL, FLARESOLVERR_URL, DB_PATH, CSV_PATH,
     MAX_WORKERS, REQUEST_TIMEOUT, FLARE_TIMEOUT, CSV_HEADERS
 )
+from init_db import init_database
 
 class AqarCrawler:
     def __init__(self):
@@ -37,30 +38,7 @@ class AqarCrawler:
         self.running = False
 
     def _init_db(self):
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute("PRAGMA journal_mode = WAL;")
-        cur.execute("PRAGMA synchronous = NORMAL;")
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS pages (
-                page_num INTEGER PRIMARY KEY,
-                status TEXT DEFAULT 'pending',
-                scraped_at TEXT
-            )
-        """)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS listings (
-                id INTEGER PRIMARY KEY,
-                page_num INTEGER,
-                page_url TEXT,
-                ad_url TEXT,
-                data_json TEXT,
-                scraped_at TEXT
-            )
-        """)
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_pages_status ON pages(status);")
-        conn.commit()
-        conn.close()
+        init_database(DB_PATH)
 
     def _init_csv(self):
         if not os.path.exists(CSV_PATH) or os.path.getsize(CSV_PATH) == 0:

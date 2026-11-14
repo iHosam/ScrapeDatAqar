@@ -57,7 +57,7 @@ EOF
     echo "[OK] Docker Engine installed."
 fi
 
-echo "=== [4/4] Checking Python Virtual Environment ==="
+echo "=== [4/5] Checking Python Virtual Environment ==="
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$DIR"
 
@@ -69,5 +69,8 @@ fi
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
+
+echo "=== [5/5] Initializing Database Schema (SQLite WAL Mode) ==="
+python3 init_db.py
 
 echo "=== Setup Complete! Run ./run_pipeline.sh to start crawler. ==="

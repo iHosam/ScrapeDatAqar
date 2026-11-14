@@ -95,6 +95,28 @@ graph TD
 
 ---
 
+## 🗄️ Database Architecture (SQLite in WAL Mode)
+
+Unlike client-server relational databases (such as PostgreSQL or MySQL) which require independent background daemons and socket authentication, **SQLite is an embedded, serverless engine** that operates directly against a single file on the filesystem.
+
+In this pipeline, SQLite is initialized via `init_db.py` with **Write-Ahead Logging (WAL)** enabled:
+```sql
+PRAGMA journal_mode = WAL;
+PRAGMA synchronous = NORMAL;
+```
+
+### Why WAL Mode?
+- **Concurrent Readers & Writers:** Standard SQLite locks the entire database file during writes. WAL mode allows concurrent threads to read pages while a worker writes newly scraped listings, eliminating `database is locked` exceptions.
+- **Fast Queue Transactions:** The `pages` queue tracks status (`pending` ➔ `done` / `empty`), allowing instant crash recovery and resumption.
+
+### Standalone Database Setup
+To manually initialize or inspect the database schema at any time:
+```bash
+python3 init_db.py
+```
+
+---
+
 ## 🛠️ Getting Started
 
 ### 1. Automated Setup (Bare-Metal or VM)
