@@ -44,18 +44,32 @@ def export_to_excel(csv_path=None, excel_path=None):
     def clean_val(v):
         return ILLEGAL_CHARACTERS_RE.sub('', v) if isinstance(v, str) else v
 
-    num_indices = {0, 4, 6, 7, 8, 22, 23, 24, 41, 42, 43, 50}
-    float_indices = {39, 40}
+    num_header_names = {
+        "رقم الإعلان", "السعر (ريال)", "السعر الإجمالي الموثق (هيئة العقار)", "المساحة (م²)",
+        "مساحة الصك (م²)", "غرف النوم", "الصالات", "دورات المياه", "المشاهدات",
+        "الإعجابات", "المفضلة", "عدد الصور"
+    }
+    float_header_names = {"خط العرض (Lat)", "خط الطول (Lng)"}
 
     with open(csv_path, 'r', encoding='utf-8-sig', errors='ignore') as f:
         reader = csv.reader(f)
         headers = next(reader, None)
+        num_indices = set()
+        float_indices = set()
+        meter_price_idx = None
+
         if headers:
             header_cells = []
-            for h in headers:
+            for idx, h in enumerate(headers):
                 c = WriteOnlyCell(ws, value=clean_val(h))
                 c.font, c.fill, c.alignment, c.border = header_font, header_fill, header_align, thin_border
                 header_cells.append(c)
+                if h in num_header_names:
+                    num_indices.add(idx)
+                elif h in float_header_names:
+                    float_indices.add(idx)
+                elif h == "سعر المتر المربع":
+                    meter_price_idx = idx
             ws.append(header_cells)
 
         count = 0
@@ -64,8 +78,11 @@ def export_to_excel(csv_path=None, excel_path=None):
                 continue
             row_cells = []
             for idx, val in enumerate(row):
-                cell_val = val
-                if idx in num_indices:
+                row_num = count + 2
+                if idx == meter_price_idx:
+                    # Dynamic Excel Formula: (= السعر (ريال) ÷ المساحة (م²) )
+                    cell_val = f'=IF(H{row_num}>0, ROUND(E{row_num}/H{row_num}, 2), "")'
+                elif idx in num_indices:
                     try:
                         cell_val = float(val) if '.' in val else int(val)
                     except Exception:
@@ -80,7 +97,11 @@ def export_to_excel(csv_path=None, excel_path=None):
 
                 c = WriteOnlyCell(ws, value=cell_val)
                 c.font, c.border = data_font, thin_border
-                c.alignment = center_align if isinstance(cell_val, (int, float)) else right_align
+                if idx == meter_price_idx:
+                    c.alignment = center_align
+                    c.number_format = '#,##0.00'
+                else:
+                    c.alignment = center_align if isinstance(cell_val, (int, float)) else right_align
                 row_cells.append(c)
             ws.append(row_cells)
             count += 1

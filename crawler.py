@@ -143,8 +143,8 @@ class AqarCrawler:
         # Unique Output Files for this Run
         ts = datetime.now().strftime('%Y%m%d_%H%M%S')
         safe_city = re.sub(r'[^\w\-]', '_', self.target_city)
-        self.csv_filename = f"aqar_{safe_city}_{ts}_53cols.csv"
-        self.excel_filename = f"aqar_{safe_city}_{ts}_53cols.xlsx"
+        self.csv_filename = f"aqar_{safe_city}_{ts}_54cols.csv"
+        self.excel_filename = f"aqar_{safe_city}_{ts}_54cols.xlsx"
         self.csv_path = os.path.join(DATA_DIR, self.csv_filename)
         self.excel_path = os.path.join(DATA_DIR, self.excel_filename)
 
@@ -316,9 +316,13 @@ class AqarCrawler:
         full_ad_url = f"{BASE_SITE_URL}{direct_path}"
         short_ad_url = f"{BASE_SITE_URL}/ad/{aid}"
 
+        price_val = float(item.get('price') or 0)
+        area_val = float(item.get('area') or 0)
+        meter_price = round(price_val / area_val, 2) if (area_val > 0 and price_val > 0) else ""
+
         return [
             aid, f"عقارات {item_city}", item.get('categoryName', ''), item.get('title', ''), item.get('price', ''),
-            item.get('rent_period_text', ''), item.get('rega_total_price', ''), item.get('area', ''), item.get('deed_area', ''),
+            item.get('rent_period_text', ''), item.get('rega_total_price', ''), item.get('area', ''), meter_price, item.get('deed_area', ''),
             item_city, item_district, item.get('address', ''), item.get('advertisement_number', ''),
             item.get('deed_number', ''), item.get('plan_number', ''), item.get('parcel_number', ''),
             f"{item.get('plan_number', '')} / {item.get('parcel_number', '')}".strip(" /"),
@@ -417,7 +421,7 @@ class AqarCrawler:
                             row = self.transform_to_row(it, p_num)
                             csv_rows.append(row)
                             c.execute("INSERT OR REPLACE INTO listings (id, page_num, page_url, ad_url, data_json, scraped_at) VALUES (?, ?, ?, ?, ?, ?)",
-                                      (aid, p_num, row[46], row[47], json.dumps(it, ensure_ascii=False), datetime.now().isoformat()))
+                                      (aid, p_num, row[47], row[48], json.dumps(it, ensure_ascii=False), datetime.now().isoformat()))
                     c.execute("UPDATE pages SET status = 'done', scraped_at = ? WHERE page_num = ?", (datetime.now().isoformat(), p_num))
                     scraped_this_session += len(items)
                 else:
@@ -453,12 +457,16 @@ class AqarCrawler:
             self._log(f"Auto Excel generation error: {e}")
 
         # Update latest pointers
-        latest_csv = os.path.join(DATA_DIR, 'aqar_latest_53cols.csv')
-        latest_xlsx = os.path.join(DATA_DIR, 'aqar_latest_53cols.xlsx')
+        latest_csv_54 = os.path.join(DATA_DIR, 'aqar_latest_54cols.csv')
+        latest_xlsx_54 = os.path.join(DATA_DIR, 'aqar_latest_54cols.xlsx')
+        latest_csv_53 = os.path.join(DATA_DIR, 'aqar_latest_53cols.csv')
+        latest_xlsx_53 = os.path.join(DATA_DIR, 'aqar_latest_53cols.xlsx')
         try:
-            shutil.copyfile(self.csv_path, latest_csv)
+            shutil.copyfile(self.csv_path, latest_csv_54)
+            shutil.copyfile(self.csv_path, latest_csv_53)
             if os.path.exists(self.excel_path):
-                shutil.copyfile(self.excel_path, latest_xlsx)
+                shutil.copyfile(self.excel_path, latest_xlsx_54)
+                shutil.copyfile(self.excel_path, latest_xlsx_53)
         except Exception:
             pass
 
