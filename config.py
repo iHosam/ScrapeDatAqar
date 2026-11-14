@@ -1,10 +1,11 @@
 """
 Configuration constants for ScrapeDatAqar pipeline.
-Supports dynamic environment variable overrides for Docker containerization.
+Supports dynamic environment variable overrides and multi-city / multi-filter crawling.
 """
 
 import os
 
+BASE_SITE_URL = os.getenv('BASE_SITE_URL', 'https://sa.aqar.fm')
 BASE_CITY_URL = os.getenv('BASE_CITY_URL', 'https://sa.aqar.fm/%D8%B9%D9%82%D8%A7%D8%B1%D8%A7%D8%AA/%D8%A7%D9%84%D8%B1%D9%8A%D8%A7%D8%B6')
 FLARESOLVERR_URL = os.getenv('FLARESOLVERR_URL', 'http://127.0.0.1:8191/v1')
 
@@ -19,6 +20,20 @@ PORT = int(os.getenv('PORT', '8099'))
 MAX_WORKERS = int(os.getenv('MAX_WORKERS', '4'))
 REQUEST_TIMEOUT = 14
 FLARE_TIMEOUT = 45000
+
+# Supported default cities
+SUPPORTED_CITIES = [
+    "الكل (جميع المدن)", "الرياض", "جدة", "الدمام", "مكة المكرمة", "المدينة المنورة",
+    "الخبر", "تبوك", "أبها", "الطائف", "بريدة", "خميس مشيط", "الهفوف",
+    "الجبيل", "حائل", "نجران", "ينبع", "جازان", "القطيف", "الخرج"
+]
+
+# Supported categories
+SUPPORTED_CATEGORIES = [
+    "الكل (جميع الأقسام)", "شقق للإيجار", "شقق للبيع", "فلل للبيع", "فلل للإيجار",
+    "أراضي للبيع", "دور للإيجار", "دور للبيع", "عمارة للبيع", "استراحة للإيجار",
+    "استراحة للبيع", "محلات للإيجار", "محلات للبيع", "مكاتب للإيجار", "مستودع للإيجار"
+]
 
 CSV_HEADERS = [
     "رقم الإعلان", "تصنيف البحث في الرياض", "القسم / الفئة", "عنوان العقار", "السعر (ريال)",

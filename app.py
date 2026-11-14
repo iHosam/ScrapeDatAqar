@@ -14,8 +14,8 @@ from flask import Flask, jsonify, render_template, request, send_from_directory
 import requests
 
 from config import (
-    BASE_CITY_URL, FLARESOLVERR_URL, DB_PATH, CSV_PATH, EXCEL_PATH,
-    PORT, DATA_DIR
+    BASE_SITE_URL, BASE_CITY_URL, FLARESOLVERR_URL, DB_PATH, CSV_PATH, EXCEL_PATH,
+    PORT, DATA_DIR, SUPPORTED_CITIES, SUPPORTED_CATEGORIES
 )
 from crawler import AqarCrawler
 from export_excel import export_to_excel
@@ -34,11 +34,15 @@ def add_log(msg):
 
 @app.route('/')
 def index():
-    return render_template('index.html', port=PORT)
+    return render_template(
+        'index.html',
+        port=PORT,
+        cities=SUPPORTED_CITIES,
+        categories=SUPPORTED_CATEGORIES
+    )
 
 @app.route('/api/readiness')
 def check_readiness():
-    """Checks if FlareSolverr, DB, and environment are ready."""
     checks = {
         'flaresolverr': {'status': False, 'message': 'Unreachable'},
         'database': {'status': False, 'message': 'Not initialized'},
@@ -56,7 +60,7 @@ def check_readiness():
                 checks['flaresolverr'] = {
                     'status': True,
                     'latency_ms': int((time.time() - t0) * 1000),
-                    'message': f'Healthy ({candidate})'
+                    'message': f'Healthy'
                 }
                 break
         except Exception as e:
@@ -92,7 +96,6 @@ def check_readiness():
 
 @app.route('/api/status')
 def get_status():
-    """Returns live metrics and running status."""
     global is_running
 
     stats = {
@@ -133,32 +136,33 @@ def get_status():
 
 @app.route('/api/start', methods=['POST'])
 def start_scrape():
-    """Starts or resumes the crawler loop in a background thread."""
+    """Starts or resumes the crawler loop in a background thread with custom filters."""
     global crawler_instance, crawler_thread, is_running
 
     if is_running:
-        return jsonify({'success': False, 'message': 'Crawler is already running.'})
+        return jsonify({'success': False, 'message': 'Crawler is already active.'})
+
+    filters = request.get_json(silent=True) or {}
 
     def run_worker():
         global crawler_instance, is_running
         is_running = True
         try:
-            add_log("Launching crawler background thread...")
-            crawler_instance = AqarCrawler(log_callback=add_log)
+            add_log(f"Initializing crawl with filters: {filters}")
+            crawler_instance = AqarCrawler(filters=filters, log_callback=add_log)
             crawler_instance.run()
         except Exception as e:
-            add_log(f"Crawler error: {e}")
+            add_log(f"Crawler encountered an error: {e}")
         finally:
             is_running = False
             add_log("Crawler execution completed or paused.")
 
     crawler_thread = threading.Thread(target=run_worker, daemon=True)
     crawler_thread.start()
-    return jsonify({'success': True, 'message': 'Crawl initiated successfully.'})
+    return jsonify({'success': True, 'message': 'Crawl initiated with custom filters.'})
 
 @app.route('/api/stop', methods=['POST'])
 def stop_scrape():
-    """Gracefully halts the active crawler."""
     global crawler_instance, is_running
 
     if not is_running or not crawler_instance:
@@ -170,13 +174,11 @@ def stop_scrape():
 
 @app.route('/api/export', methods=['POST'])
 def run_export():
-    """Triggers generation of the styled Excel workbook."""
     def export_worker():
         add_log("Starting Excel export...")
         try:
             export_to_excel()
             add_log("Excel workbook generated successfully.")
-            # Update latest completed run with excel filename
             if os.path.exists(DB_PATH):
                 conn = sqlite3.connect(DB_PATH)
                 c = conn.cursor()
@@ -192,19 +194,17 @@ def run_export():
 
 @app.route('/api/logs')
 def get_logs():
-    """Returns rolling log output."""
     return jsonify({'logs': list(log_buffer)})
 
 @app.route('/api/history')
 def get_history():
-    """Returns past crawl runs from database."""
     runs = []
     if os.path.exists(DB_PATH):
         try:
             conn = sqlite3.connect(DB_PATH)
             cur = conn.cursor()
             cur.execute("""
-                SELECT id, started_at, finished_at, status, listings_count, pages_done, total_pages, csv_file, excel_file
+                SELECT id, started_at, finished_at, status, listings_count, pages_done, total_pages, filter_desc, csv_file, excel_file
                 FROM runs ORDER BY id DESC LIMIT 20
             """)
             for r in cur.fetchall():
@@ -216,8 +216,9 @@ def get_history():
                     'listings_count': r[4],
                     'pages_done': r[5],
                     'total_pages': r[6],
-                    'csv_file': r[7],
-                    'excel_file': r[8] or (os.path.basename(EXCEL_PATH) if os.path.exists(EXCEL_PATH) else None)
+                    'filter_desc': r[7] or 'Default Filters',
+                    'csv_file': r[8],
+                    'excel_file': r[9] or (os.path.basename(EXCEL_PATH) if os.path.exists(EXCEL_PATH) else None)
                 })
             conn.close()
         except Exception:
@@ -226,8 +227,6 @@ def get_history():
 
 @app.route('/download/<path:filename>')
 def download_file(filename):
-    """Directly serves generated documents for download."""
-    # Ensure safe filename
     filename = os.path.basename(filename)
     return send_from_directory(DATA_DIR, filename, as_attachment=True)
 

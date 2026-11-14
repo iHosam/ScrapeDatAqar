@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS runs (
     listings_count INTEGER DEFAULT 0,
     pages_done INTEGER DEFAULT 0,
     total_pages INTEGER DEFAULT 0,
+    filter_desc TEXT DEFAULT 'All Filters (Default)',
     csv_file TEXT,
     excel_file TEXT
 );
@@ -50,6 +51,16 @@ def init_database(db_path=DB_PATH):
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
     cur.executescript(SCHEMA_SQL)
+
+    # Safe migration: add filter_desc if missing
+    cur.execute("PRAGMA table_info(runs)")
+    cols = [col[1] for col in cur.fetchall()]
+    if 'filter_desc' not in cols:
+        try:
+            cur.execute("ALTER TABLE runs ADD COLUMN filter_desc TEXT DEFAULT 'All Filters (Default)'")
+        except Exception:
+            pass
+
     conn.commit()
 
     cur.execute("SELECT name FROM sqlite_master WHERE type='table';")

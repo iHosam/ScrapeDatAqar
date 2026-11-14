@@ -1,16 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ScrapeDatAqar - Dashboard & Controller</title>
+    <title>ScrapeDatAqar - لوحة التحكم واستخراج عقارات المملكة</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Cairo', 'Inter', sans-serif; background-color: #0b1120; color: #f8fafc; }
         .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .log-terminal { font-family: 'Consolas', 'Courier New', monospace; }
+        .log-terminal { font-family: 'Consolas', 'Courier New', monospace; direction: ltr; text-align: left; }
+        input[type="range"] { accent-color: #10b981; }
+        select option { background-color: #1e293b; color: #f8fafc; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     </style>
@@ -19,40 +21,40 @@
 
     <div class="max-w-7xl mx-auto space-y-6">
 
-        <!-- Header -->
+        <!-- Top Header -->
         <header class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-700/60 gap-4">
-            <div class="flex items-center space-x-3">
-                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold text-xl shadow-lg shadow-emerald-500/20">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <div class="h-11 w-11 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold text-2xl shadow-lg shadow-emerald-500/20">
                     <i class="fa-solid fa-building-wheat"></i>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                        ScrapeDatAqar <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">v2.0.1</span>
+                    <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                        ScrapeDatAqar <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">v2.0.2</span>
                     </h1>
-                    <p class="text-xs text-slate-400">High-Throughput Aqar.fm Extractor & Management Console</p>
+                    <p class="text-xs text-slate-400">منظومة الاستخراج الذكي والشامل لعقارات مدن المملكة العربية السعودية</p>
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <span id="pulse-badge" class="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
+                <span id="pulse-badge" class="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
                     <span class="relative flex h-2 w-2">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
-                    Port {{ port }} Active
+                    المنفذ النشط: {{ port }}
                 </span>
-                <button onclick="refreshData()" class="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition">
+                <button onclick="refreshData()" class="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition" title="تحديث البيانات">
                     <i class="fa-solid fa-arrows-rotate"></i>
                 </button>
             </div>
         </header>
 
         <!-- System Readiness Bar -->
-        <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <section class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <!-- FlareSolverr Status -->
             <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
                 <div>
-                    <div class="text-xs text-slate-400 font-medium">FlareSolverr Service</div>
-                    <div id="fs-status-text" class="text-sm font-semibold text-slate-300 mt-0.5">Checking...</div>
+                    <div class="text-xs text-slate-400 font-medium">خدمة الحماية (FlareSolverr)</div>
+                    <div id="fs-status-text" class="text-sm font-semibold text-slate-300 mt-0.5">جارِ الفحص...</div>
                 </div>
                 <div id="fs-icon" class="h-9 w-9 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500">
                     <i class="fa-solid fa-shield-halved"></i>
@@ -62,8 +64,8 @@
             <!-- Database Status -->
             <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
                 <div>
-                    <div class="text-xs text-slate-400 font-medium">SQLite WAL Database</div>
-                    <div id="db-status-text" class="text-sm font-semibold text-slate-300 mt-0.5">Checking...</div>
+                    <div class="text-xs text-slate-400 font-medium">قاعدة البيانات (SQLite WAL)</div>
+                    <div id="db-status-text" class="text-sm font-semibold text-slate-300 mt-0.5">جارِ الفحص...</div>
                 </div>
                 <div id="db-icon" class="h-9 w-9 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500">
                     <i class="fa-solid fa-database"></i>
@@ -73,19 +75,19 @@
             <!-- Disk Space -->
             <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
                 <div>
-                    <div class="text-xs text-slate-400 font-medium">Storage Space</div>
-                    <div id="disk-status-text" class="text-sm font-semibold text-slate-300 mt-0.5">Checking...</div>
+                    <div class="text-xs text-slate-400 font-medium">المساحة المتوفرة</div>
+                    <div id="disk-status-text" class="text-sm font-semibold text-slate-300 mt-0.5">جارِ الفحص...</div>
                 </div>
                 <div class="h-9 w-9 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400">
                     <i class="fa-solid fa-hard-drive"></i>
                 </div>
             </div>
 
-            <!-- System Readiness Overall -->
+            <!-- Overall System Readiness -->
             <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
                 <div>
-                    <div class="text-xs text-slate-400 font-medium">System Readiness</div>
-                    <div id="overall-status-text" class="text-sm font-bold text-slate-300 mt-0.5">Checking...</div>
+                    <div class="text-xs text-slate-400 font-medium">جاهزية المنظومة</div>
+                    <div id="overall-status-text" class="text-sm font-bold text-slate-300 mt-0.5">جارِ الفحص...</div>
                 </div>
                 <div id="overall-icon" class="h-9 w-9 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500">
                     <i class="fa-solid fa-circle-check"></i>
@@ -93,36 +95,166 @@
             </div>
         </section>
 
-        <!-- Control Action Panel -->
-        <section class="glass-panel p-6 rounded-2xl flex flex-wrap items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
-                <button id="btn-start" onclick="startCrawler()" class="px-6 py-2.5 rounded-xl font-semibold text-sm bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition disabled:opacity-50 disabled:pointer-events-none">
-                    <i class="fa-solid fa-play"></i> Start Scrape
-                </button>
-                <button id="btn-stop" onclick="stopCrawler()" disabled class="px-6 py-2.5 rounded-xl font-semibold text-sm bg-amber-600 hover:bg-amber-500 active:scale-95 text-white flex items-center gap-2 shadow-lg shadow-amber-600/30 transition disabled:opacity-50 disabled:pointer-events-none">
-                    <i class="fa-solid fa-pause"></i> Pause
-                </button>
-                <button id="btn-export" onclick="exportExcel()" class="px-5 py-2.5 rounded-xl font-semibold text-sm bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 flex items-center gap-2 transition">
-                    <i class="fa-solid fa-file-excel text-emerald-400"></i> Export Excel
+        <!-- Dynamic Filter Control Center -->
+        <section class="glass-panel p-6 rounded-2xl space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-emerald-400"></i>
+                    <h2 class="text-lg font-bold text-white">إعدادات وفلاتر الزحف المخصصة (اختيارية - افتراضياً: الكل)</h2>
+                </div>
+                <button onclick="resetFilters()" class="text-xs text-slate-400 hover:text-emerald-400 transition flex items-center gap-1">
+                    <i class="fa-solid fa-arrow-rotate-left"></i> إعادة ضبط الفلاتر
                 </button>
             </div>
 
-            <div class="flex items-center gap-4 text-xs text-slate-400">
-                <div id="live-crawler-badge" class="px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 flex items-center gap-2">
-                    <span class="h-2 w-2 rounded-full bg-slate-500"></span> IDLE
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- 1. City Filter (المدينة) -->
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                        <span>المدينة <span class="text-slate-500 font-normal">(اختر مدينة أو حدد الكل)</span></span>
+                    </label>
+                    <select id="filter-city" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition">
+                        <option value="الكل" selected>الكل (جميع المدن / الرياض افتراضياً)</option>
+                        <option value="الرياض">الرياض</option>
+                        <option value="جدة">جدة</option>
+                        <option value="الدمام">الدمام</option>
+                        <option value="مكة المكرمة">مكة المكرمة</option>
+                        <option value="المدينة المنورة">المدينة المنورة</option>
+                        <option value="الخبر">الخبر</option>
+                        <option value="تبوك">تبوك</option>
+                        <option value="أبها">أبها</option>
+                        <option value="الطائف">الطائف</option>
+                        <option value="بريدة">بريدة</option>
+                        <option value="خميس مشيط">خميس مشيط</option>
+                        <option value="الهفوف">الهفوف</option>
+                        <option value="الجبيل">الجبيل</option>
+                        <option value="حائل">حائل</option>
+                        <option value="نجران">نجران</option>
+                        <option value="ينبع">ينبع</option>
+                        <option value="جازان">جازان</option>
+                        <option value="custom">-- مدينة أخرى (كتابة يدوية) --</option>
+                    </select>
+                    <input id="filter-city-custom" type="text" placeholder="اكتب اسم المدينة هنا..." class="hidden w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 mt-2">
+                </div>
+
+                <!-- 2. Category Filter (القسم / الفئة) -->
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                        <span>القسم / الفئة <span class="text-slate-500 font-normal">(متعدد الخيارات)</span></span>
+                    </label>
+                    <select id="filter-categories" multiple size="3" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition">
+                        <option value="الكل" selected>الكل (جميع الأقسام والفئات)</option>
+                        <option value="شقق للإيجار">شقق للإيجار</option>
+                        <option value="شقق للبيع">شقق للبيع</option>
+                        <option value="فلل للبيع">فلل للبيع</option>
+                        <option value="فلل للإيجار">فلل للإيجار</option>
+                        <option value="أراضي للبيع">أراضي للبيع</option>
+                        <option value="دور للإيجار">دور للإيجار</option>
+                        <option value="دور للبيع">دور للبيع</option>
+                        <option value="عمارة للبيع">عمارة للبيع</option>
+                        <option value="استراحة للإيجار">استراحة للإيجار</option>
+                        <option value="استراحة للبيع">استراحة للبيع</option>
+                        <option value="محلات للإيجار">محلات للإيجار</option>
+                        <option value="مكاتب للإيجار">مكاتب للإيجار</option>
+                        <option value="مستودع للإيجار">مستودع للإيجار</option>
+                    </select>
+                </div>
+
+                <!-- 3. Bedrooms Filter (غرف النوم) -->
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold text-slate-300">عدد غرف النوم</label>
+                    <select id="filter-beds" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition">
+                        <option value="الكل" selected>الكل (أي عدد غرف نوم)</option>
+                        <option value="1">1 غرفة نوم</option>
+                        <option value="2">2 غرف نوم</option>
+                        <option value="3">3 غرف نوم</option>
+                        <option value="4">4 غرف نوم</option>
+                        <option value="5">5 غرف نوم</option>
+                        <option value="6+">6+ غرف نوم فاكثر</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Range Sliders (السعر والمساحة) & Neighborhood (الحي) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                <!-- Price Range Slider (السعر) -->
+                <div class="space-y-3 bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
+                    <div class="flex items-center justify-between text-xs font-semibold">
+                        <span class="text-slate-300">نطاق السعر (ريال)</span>
+                        <span id="price-display" class="text-emerald-400 font-mono">0 - بلا حد أقصى</span>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 text-xs text-slate-400">
+                            <span>الحد الأدنى:</span>
+                            <input id="price-min" type="number" min="0" max="10000000" step="5000" value="0" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs">
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-slate-400">
+                            <span>الحد الأقصى:</span>
+                            <input id="price-max" type="number" min="0" max="20000000" step="10000" value="0" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs" placeholder="0 = بلا حد">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Area Range Slider (المساحة) -->
+                <div class="space-y-3 bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
+                    <div class="flex items-center justify-between text-xs font-semibold">
+                        <span class="text-slate-300">نطاق المساحة (م²)</span>
+                        <span id="area-display" class="text-teal-400 font-mono">0 - بلا حد أقصى</span>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 text-xs text-slate-400">
+                            <span>الحد الأدنى:</span>
+                            <input id="area-min" type="number" min="0" max="10000" step="25" value="0" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs">
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-slate-400">
+                            <span>الحد الأقصى:</span>
+                            <input id="area-max" type="number" min="0" max="50000" step="50" value="0" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs" placeholder="0 = بلا حد">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Neighborhood Filter (الحي) -->
+                <div class="space-y-3 bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
+                    <label class="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                        <span>الحي / الأحياء المستهدفة</span>
+                        <span class="text-slate-500 font-normal">اختياري</span>
+                    </label>
+                    <input id="filter-districts" type="text" placeholder="اكتب الأحياء (مفصولة بفاصلة) أو اتركها للكل..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                    <div class="text-[11px] text-slate-500">مثال: حي النرجس, حي الياسمين, حي المنار (أو فارغ للجميع)</div>
+                </div>
+            </div>
+
+            <!-- Action Buttons Bar -->
+            <div class="flex flex-wrap items-center justify-between pt-4 border-t border-slate-700/50 gap-4">
+                <div class="flex items-center gap-3">
+                    <button id="btn-start" onclick="startCrawlerWithFilters()" class="px-6 py-2.5 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition disabled:opacity-50 disabled:pointer-events-none">
+                        <i class="fa-solid fa-play"></i> بدء الزحف الفوري بالفلاتر
+                    </button>
+                    <button id="btn-stop" onclick="stopCrawler()" disabled class="px-6 py-2.5 rounded-xl font-bold text-sm bg-amber-600 hover:bg-amber-500 active:scale-95 text-white flex items-center gap-2 shadow-lg shadow-amber-600/30 transition disabled:opacity-50 disabled:pointer-events-none">
+                        <i class="fa-solid fa-pause"></i> إيقاف مؤقت
+                    </button>
+                    <button id="btn-export" onclick="exportExcel()" class="px-5 py-2.5 rounded-xl font-semibold text-sm bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 flex items-center gap-2 transition">
+                        <i class="fa-solid fa-file-excel text-emerald-400"></i> تصدير إكسل (XLSX)
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-3 text-xs text-slate-400">
+                    <div id="live-crawler-badge" class="px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 flex items-center gap-2 font-mono">
+                        <span class="h-2 w-2 rounded-full bg-slate-500"></span> حالة الزاحف: خامل (IDLE)
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- Metrics Dashboard -->
+        <!-- Live Metrics Dashboard -->
         <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <!-- Progress Box -->
             <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between">
                 <div>
-                    <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">Crawl Completion</span>
+                    <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">نسبة اكتمال الزحف</span>
                     <div class="mt-2 flex items-baseline gap-2">
                         <span id="metric-pct" class="text-4xl font-extrabold text-white">0.0%</span>
-                        <span id="metric-pages-done" class="text-xs text-slate-400">0 / 0 pages</span>
+                        <span id="metric-pages-done" class="text-xs text-slate-400">0 / 0 صفحة</span>
                     </div>
                 </div>
                 <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden mt-6 border border-slate-700">
@@ -133,35 +265,35 @@
             <!-- Total Scraped Ads -->
             <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between">
                 <div>
-                    <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">Active Listings Captured</span>
+                    <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">إجمالي الإعلانات المستخرجة</span>
                     <div class="mt-2 flex items-baseline gap-2">
                         <span id="metric-listings" class="text-4xl font-extrabold text-emerald-400">0</span>
-                        <span class="text-xs text-slate-400">real estate ads</span>
+                        <span class="text-xs text-slate-400">إعلان عقاري</span>
                     </div>
                 </div>
                 <div class="flex items-center justify-between text-xs text-slate-400 pt-4 border-t border-slate-700/50 mt-4">
-                    <span>Pending Pages: <b id="metric-pending" class="text-white">0</b></span>
-                    <span>Empty Pages: <b id="metric-empty" class="text-white">0</b></span>
+                    <span>صفحات قيد الانتظار: <b id="metric-pending" class="text-white font-mono">0</b></span>
+                    <span>صفحات منتهية: <b id="metric-empty" class="text-white font-mono">0</b></span>
                 </div>
             </div>
 
             <!-- Documents & Storage Status -->
             <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between">
                 <div>
-                    <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">Artifact Documents</span>
+                    <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">الملفات والمخرجات المباشرة</span>
                     <div class="mt-3 space-y-2 text-xs">
                         <div class="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
-                            <span class="flex items-center gap-2"><i class="fa-solid fa-file-excel text-emerald-400"></i> Excel (.xlsx)</span>
+                            <span class="flex items-center gap-2"><i class="fa-solid fa-file-excel text-emerald-400"></i> إكسل (XLSX منسق RTL)</span>
                             <span id="file-excel-size" class="font-mono text-slate-300">0 MB</span>
                         </div>
                         <div class="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
-                            <span class="flex items-center gap-2"><i class="fa-solid fa-file-csv text-blue-400"></i> CSV (53 cols)</span>
+                            <span class="flex items-center gap-2"><i class="fa-solid fa-file-csv text-blue-400"></i> ملف CSV (53 عمود)</span>
                             <span id="file-csv-size" class="font-mono text-slate-300">0 MB</span>
                         </div>
                     </div>
                 </div>
                 <div class="text-xs text-slate-400 pt-2">
-                    SQLite Database: <span id="file-db-size" class="font-mono text-white">0 MB</span>
+                    قاعدة بيانات SQLite: <span id="file-db-size" class="font-mono text-white">0 MB</span>
                 </div>
             </div>
         </section>
@@ -170,12 +302,12 @@
         <section class="glass-panel p-5 rounded-2xl">
             <div class="flex items-center justify-between pb-3 border-b border-slate-700/60 text-xs">
                 <span class="font-semibold text-slate-300 flex items-center gap-2">
-                    <i class="fa-solid fa-terminal text-slate-400"></i> Crawler Live Terminal
+                    <i class="fa-solid fa-terminal text-slate-400"></i> الطرفية الحية لعمليات الزحف
                 </span>
                 <span class="text-slate-500 font-mono">STDOUT / STDERR</span>
             </div>
             <div id="terminal-window" class="log-terminal mt-3 bg-slate-950 p-4 rounded-xl h-48 overflow-y-auto text-xs text-slate-300 space-y-1">
-                <div class="text-slate-500">Connecting to ScrapeDatAqar background daemon...</div>
+                <div class="text-slate-500">جاري الاتصال بخدمة الزحف في الخلفية...</div>
             </div>
         </section>
 
@@ -183,24 +315,25 @@
         <section class="glass-panel p-6 rounded-2xl">
             <div class="flex items-center justify-between pb-4 border-b border-slate-700/60">
                 <h3 class="text-base font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-clock-rotate-left text-slate-400"></i> Crawl Runs & Deliverables
+                    <i class="fa-solid fa-clock-rotate-left text-slate-400"></i> سجل عمليات الزحف والمخرجات
                 </h3>
             </div>
             <div class="overflow-x-auto mt-4">
-                <table class="w-full text-left text-xs text-slate-300">
+                <table class="w-full text-right text-xs text-slate-300">
                     <thead class="text-slate-400 uppercase bg-slate-800/50 font-semibold border-b border-slate-700">
                         <tr>
-                            <th class="p-3">Run ID</th>
-                            <th class="p-3">Started</th>
-                            <th class="p-3">Finished</th>
-                            <th class="p-3">Status</th>
-                            <th class="p-3">Listings</th>
-                            <th class="p-3">Pages</th>
-                            <th class="p-3 text-right">Downloads</th>
+                            <th class="p-3">رقم العملية</th>
+                            <th class="p-3">تاريخ البدء</th>
+                            <th class="p-3">تاريخ الانتهاء</th>
+                            <th class="p-3">الفلاتر المطبقة</th>
+                            <th class="p-3">الحالة</th>
+                            <th class="p-3">الإعلانات</th>
+                            <th class="p-3">الصفحات</th>
+                            <th class="p-3 text-left">تحميل المخرجات</th>
                         </tr>
                     </thead>
                     <tbody id="history-tbody" class="divide-y divide-slate-800">
-                        <tr><td colspan="7" class="p-4 text-center text-slate-500">No crawl runs recorded yet.</td></tr>
+                        <tr><td colspan="8" class="p-4 text-center text-slate-500">لا توجد عمليات مسجلة حتى الآن.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -210,23 +343,100 @@
 
     <!-- Script Operations -->
     <script>
+        // City custom input toggle
+        document.getElementById('filter-city').addEventListener('change', function(e) {
+            const customInput = document.getElementById('filter-city-custom');
+            if (e.target.value === 'custom') {
+                customInput.classList.remove('hidden');
+                customInput.focus();
+            } else {
+                customInput.classList.add('hidden');
+            }
+        });
+
+        // Range displays sync
+        function updateRangeLabels() {
+            const pMin = parseInt(document.getElementById('price-min').value) || 0;
+            const pMax = parseInt(document.getElementById('price-max').value) || 0;
+            const pText = (pMin === 0 && pMax === 0) ? '0 - بلا حد أقصى' : `${pMin.toLocaleString()} - ${pMax > 0 ? pMax.toLocaleString() + ' ريال' : 'بلا حد'}`;
+            document.getElementById('price-display').innerText = pText;
+
+            const aMin = parseInt(document.getElementById('area-min').value) || 0;
+            const aMax = parseInt(document.getElementById('area-max').value) || 0;
+            const aText = (aMin === 0 && aMax === 0) ? '0 - بلا حد أقصى' : `${aMin.toLocaleString()} - ${aMax > 0 ? aMax.toLocaleString() + ' م²' : 'بلا حد'}`;
+            document.getElementById('area-display').innerText = aText;
+        }
+
+        document.getElementById('price-min').addEventListener('input', updateRangeLabels);
+        document.getElementById('price-max').addEventListener('input', updateRangeLabels);
+        document.getElementById('area-min').addEventListener('input', updateRangeLabels);
+        document.getElementById('area-max').addEventListener('input', updateRangeLabels);
+
+        function resetFilters() {
+            document.getElementById('filter-city').value = 'الكل';
+            document.getElementById('filter-city-custom').value = '';
+            document.getElementById('filter-city-custom').classList.add('hidden');
+
+            const catSelect = document.getElementById('filter-categories');
+            for (let i = 0; i < catSelect.options.length; i++) {
+                catSelect.options[i].selected = (catSelect.options[i].value === 'الكل');
+            }
+
+            document.getElementById('filter-beds').value = 'الكل';
+            document.getElementById('price-min').value = 0;
+            document.getElementById('price-max').value = 0;
+            document.getElementById('area-min').value = 0;
+            document.getElementById('area-max').value = 0;
+            document.getElementById('filter-districts').value = '';
+            updateRangeLabels();
+        }
+
+        function collectFilters() {
+            let city = document.getElementById('filter-city').value;
+            if (city === 'custom') {
+                city = document.getElementById('filter-city-custom').value.trim() || 'الرياض';
+            }
+
+            const catSelect = document.getElementById('filter-categories');
+            const selectedCats = Array.from(catSelect.selectedOptions).map(opt => opt.value);
+
+            return {
+                city: city,
+                categories: selectedCats.length > 0 ? selectedCats : ['الكل'],
+                beds: document.getElementById('filter-beds').value,
+                min_price: parseFloat(document.getElementById('price-min').value) || 0,
+                max_price: parseFloat(document.getElementById('price-max').value) || 0,
+                min_area: parseFloat(document.getElementById('area-min').value) || 0,
+                max_area: parseFloat(document.getElementById('area-max').value) || 0,
+                districts: document.getElementById('filter-districts').value.trim() || 'الكل'
+            };
+        }
+
+        async function startCrawlerWithFilters() {
+            const filters = collectFilters();
+            await fetch('/api/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(filters)
+            });
+            refreshData();
+        }
+
         async function fetchReadiness() {
             try {
                 const res = await fetch('/api/readiness');
                 const data = await res.json();
 
-                // FlareSolverr Card
                 const fsText = document.getElementById('fs-status-text');
                 const fsIcon = document.getElementById('fs-icon');
                 if (data.flaresolverr.status) {
-                    fsText.innerHTML = `<span class="text-emerald-400">Online</span> (${data.flaresolverr.latency_ms}ms)`;
+                    fsText.innerHTML = `<span class="text-emerald-400">متصل وجاهز</span> (${data.flaresolverr.latency_ms}ms)`;
                     fsIcon.className = "h-9 w-9 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center";
                 } else {
-                    fsText.innerHTML = `<span class="text-rose-400">Offline</span>`;
+                    fsText.innerHTML = `<span class="text-rose-400">غير متصل</span>`;
                     fsIcon.className = "h-9 w-9 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center";
                 }
 
-                // Database Card
                 const dbText = document.getElementById('db-status-text');
                 const dbIcon = document.getElementById('db-icon');
                 if (data.database.status) {
@@ -237,21 +447,19 @@
                     dbIcon.className = "h-9 w-9 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center";
                 }
 
-                // Disk Space Card
-                document.getElementById('disk-status-text').innerText = `${data.disk.free_gb} GB Free`;
+                document.getElementById('disk-status-text').innerText = `${data.disk.free_gb} GB متاح`;
 
-                // Overall Readiness
                 const overallText = document.getElementById('overall-status-text');
                 const overallIcon = document.getElementById('overall-icon');
                 if (data.ready) {
-                    overallText.innerHTML = `<span class="text-emerald-400">Ready to Scrape</span>`;
+                    overallText.innerHTML = `<span class="text-emerald-400 font-bold">جاهز للبدء</span>`;
                     overallIcon.className = "h-9 w-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center";
                 } else {
-                    overallText.innerHTML = `<span class="text-amber-400">Action Required</span>`;
+                    overallText.innerHTML = `<span class="text-amber-400 font-bold">يتطلب إجراء</span>`;
                     overallIcon.className = "h-9 w-9 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center";
                 }
             } catch (e) {
-                console.error("Readiness check error:", e);
+                console.error("Readiness error:", e);
             }
         }
 
@@ -260,20 +468,17 @@
                 const res = await fetch('/api/status');
                 const s = await res.json();
 
-                // Metrics
                 document.getElementById('metric-pct').innerText = `${s.progress_pct}%`;
                 document.getElementById('metric-progress-bar').style.width = `${s.progress_pct}%`;
-                document.getElementById('metric-pages-done').innerText = `${s.pages_done + s.pages_empty} / ${s.total_pages} pages`;
+                document.getElementById('metric-pages-done').innerText = `${s.pages_done + s.pages_empty} / ${s.total_pages} صفحة`;
                 document.getElementById('metric-listings').innerText = s.listings_count.toLocaleString();
                 document.getElementById('metric-pending').innerText = s.pages_pending.toLocaleString();
                 document.getElementById('metric-empty').innerText = s.pages_empty.toLocaleString();
 
-                // Files
-                document.getElementById('file-excel-size').innerText = s.excel_exists ? `${s.excel_size_mb} MB` : 'Not built';
-                document.getElementById('file-csv-size').innerText = s.csv_exists ? `${s.csv_size_mb} MB` : 'Empty';
+                document.getElementById('file-excel-size').innerText = s.excel_exists ? `${s.excel_size_mb} MB` : 'غير مكتمل';
+                document.getElementById('file-csv-size').innerText = s.csv_exists ? `${s.csv_size_mb} MB` : 'فارغ';
                 document.getElementById('file-db-size').innerText = `${s.db_size_mb} MB`;
 
-                // Buttons and State
                 const btnStart = document.getElementById('btn-start');
                 const btnStop = document.getElementById('btn-stop');
                 const crawlerBadge = document.getElementById('live-crawler-badge');
@@ -281,14 +486,14 @@
                 if (s.is_running) {
                     btnStart.disabled = true;
                     btnStop.disabled = false;
-                    crawlerBadge.innerHTML = `<span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span> <span class="text-emerald-400 font-semibold">CRAWLING ACTIVE</span>`;
+                    crawlerBadge.innerHTML = `<span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span> <span class="text-emerald-400 font-semibold font-mono">الزاحف يعمل بنشاط</span>`;
                 } else {
                     btnStart.disabled = false;
                     btnStop.disabled = true;
-                    crawlerBadge.innerHTML = `<span class="h-2 w-2 rounded-full bg-slate-500"></span> IDLE`;
+                    crawlerBadge.innerHTML = `<span class="h-2 w-2 rounded-full bg-slate-500"></span> حالة الزاحف: خامل (IDLE)`;
                 }
             } catch (e) {
-                console.error("Status check error:", e);
+                console.error("Status error:", e);
             }
         }
 
@@ -310,7 +515,7 @@
                 const data = await res.json();
                 const tbody = document.getElementById('history-tbody');
                 if (data.runs.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">No crawl runs recorded yet.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-500">لا توجد عمليات مسجلة حتى الآن.</td></tr>`;
                     return;
                 }
                 tbody.innerHTML = data.runs.map(r => {
@@ -321,10 +526,11 @@
                             <td class="p-3 font-mono font-semibold">#${r.id}</td>
                             <td class="p-3 text-slate-400">${r.started_at ? r.started_at.slice(0, 19).replace('T', ' ') : '-'}</td>
                             <td class="p-3 text-slate-400">${r.finished_at ? r.finished_at.slice(0, 19).replace('T', ' ') : '-'}</td>
+                            <td class="p-3 text-slate-300 text-[11px] font-mono">${r.filter_desc || 'Default'}</td>
                             <td class="p-3"><span class="px-2 py-0.5 rounded text-[11px] font-semibold border ${statusColor}">${r.status}</span></td>
                             <td class="p-3 font-semibold text-white">${r.listings_count.toLocaleString()}</td>
                             <td class="p-3 text-slate-400">${r.pages_done} / ${r.total_pages}</td>
-                            <td class="p-3 text-right space-x-2">
+                            <td class="p-3 text-left space-x-2 space-x-reverse">
                                 <a href="/download/aqar_riyadh_city_53cols.xlsx" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition">
                                     <i class="fa-solid fa-file-excel"></i> XLSX
                                 </a>
@@ -341,11 +547,6 @@
             } catch (e) {}
         }
 
-        async function startCrawler() {
-            await fetch('/api/start', { method: 'POST' });
-            refreshData();
-        }
-
         async function stopCrawler() {
             await fetch('/api/stop', { method: 'POST' });
             refreshData();
@@ -353,7 +554,7 @@
 
         async function exportExcel() {
             await fetch('/api/export', { method: 'POST' });
-            alert("Excel export started in background! Check terminal logs.");
+            alert("بدأ تصدير ملف الإكسل في الخلفية! راجع مخرجات الطرفية لمتابعة التقدم.");
             refreshData();
         }
 
@@ -364,7 +565,6 @@
             fetchHistory();
         }
 
-        // Initialize and poll
         refreshData();
         setInterval(fetchStatus, 2500);
         setInterval(fetchLogs, 3000);
