@@ -2,28 +2,28 @@
 
 > **Production-Grade, Containerized Real Estate Crawler & Web Management Console for Aqar.fm (`sa.aqar.fm`)**
 
-[![Version](https://img.shields.io/badge/version-2.0.2-emerald.svg)](https://github.com/iHosam/ScrapeDatAqar/releases)
+[![Version](https://img.shields.io/badge/version-2.1-emerald.svg)](https://github.com/iHosam/ScrapeDatAqar/releases)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-ScrapeDatAqar is a full-featured real estate extraction platform with a **built-in web dashboard (Port 8099)**. It supports crawling **any city in Saudi Arabia** (Riyadh, Jeddah, Dammam, Mecca, Medina, Khobar, etc.) with granular dynamic filters for categories, price bounds, area bounds, districts, and bedroom counts.
+ScrapeDatAqar is a full-featured real estate extraction platform with a **built-in web dashboard (Port 8099)**. It supports crawling **all cities across Saudi Arabia** (or specific cities such as Riyadh, Jeddah, Dammam, Mecca, Medina, Khobar, etc.) with granular dynamic filters for categories, price bounds, area bounds, districts, and bedroom counts.
 
 ---
 
-## 🎛️ Dynamic Filter System (v2.0.2)
+## 🎛️ Dynamic Filter System (v2.1)
 
-The web console introduces a powerful, multi-layered filtering engine:
+The web console introduces an upgraded filtering and run execution engine:
 
 | Filter | Control Type | Default Value | Optional? | Description |
 |---|---|---|---|---|
-| **المدينة (City)** | Multi-Option Dropdown + Custom Input | `الكل` *(الرياض افتراضياً)* | ✅ Yes | Run for Riyadh, Jeddah, Dammam, Mecca, Medina, or type any Saudi city. |
-| **القسم / الفئة (Category)** | Multi-Select Dropdown | `الكل (جميع الأقسام)` | ✅ Yes | Apartments, Villas, Lands, Floors, Commercials, Warehouses, etc. |
+| **المدينة (City)** | Single-Choice Dropdown + Custom Input | `الكل (جميع مدن ومناطق المملكة كاملة)` | ✅ Yes | Scrapes Kingdom-wide (`https://sa.aqar.fm/عقارات`), or any specific city (Jeddah, Riyadh, etc.). |
+| **القسم / الفئة (Category)** | Interactive Checkbox Pill Grid | `الكل (جميع الأقسام)` | ✅ Yes | Persistent checkbox toggle pills that never deselect when clicking elsewhere. |
 | **السعر (Price Range)** | Dual Upper & Lower Bound Sliders | `0 - بلا حد أقصى` | ✅ Yes | Filter listings by minimum and maximum price in SAR. |
 | **المساحة (Area Range)** | Dual Upper & Lower Bound Sliders | `0 - بلا حد أقصى` | ✅ Yes | Filter listings by minimum and maximum area in m². |
 | **الحي (Neighborhood)** | Multi-District Text Input | `الكل (جميع الأحياء)` | ✅ Yes | Filter listings by one or more target districts. |
 | **غرف النوم (Bedrooms)** | Number Field Dropdown | `الكل (أي عدد)` | ✅ Yes | 1, 2, 3, 4, 5, or 6+ bedrooms. |
 
-> **Default Rule:** Every filter includes an **"All" (الكل)** option and is 100% optional. If left as default, the crawler captures all properties for the chosen scope.
+> **Run Execution & Isolation:** Each crawl session runs cleanly in its own isolated context, dynamically generating distinct timestamped CSV and XLSX files linked directly in the execution history table.
 
 ---
 

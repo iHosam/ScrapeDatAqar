@@ -12,7 +12,7 @@
         .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
         .log-terminal { font-family: 'Consolas', 'Courier New', monospace; direction: ltr; text-align: left; }
         input[type="range"] { accent-color: #10b981; }
-        select option { background-color: #1e293b; color: #f8fafc; }
+        .checkbox-pill input:checked + div { background-color: rgba(16, 185, 129, 0.2); border-color: #10b981; color: #34d399; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     </style>
@@ -29,7 +29,7 @@
                 </div>
                 <div>
                     <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                        ScrapeDatAqar <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">v2.0.2</span>
+                        ScrapeDatAqar <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">v2.1</span>
                     </h1>
                     <p class="text-xs text-slate-400">منظومة الاستخراج الذكي والشامل لعقارات مدن المملكة العربية السعودية</p>
                 </div>
@@ -100,69 +100,51 @@
             <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
                 <div class="flex items-center gap-2">
                     <i class="fa-solid fa-sliders text-emerald-400"></i>
-                    <h2 class="text-lg font-bold text-white">إعدادات وفلاتر الزحف المخصصة (اختيارية - افتراضياً: الكل)</h2>
+                    <h2 class="text-lg font-bold text-white">إعدادات وفلاتر الزحف المخصصة (اختيارية - افتراضياً: جميع المدن والأقسام)</h2>
                 </div>
-                <button onclick="resetFilters()" class="text-xs text-slate-400 hover:text-emerald-400 transition flex items-center gap-1">
-                    <i class="fa-solid fa-arrow-rotate-left"></i> إعادة ضبط الفلاتر
+                <button onclick="resetFilters()" class="text-xs text-slate-400 hover:text-emerald-400 transition flex items-center gap-1 font-semibold">
+                    <i class="fa-solid fa-arrow-rotate-left"></i> إعادة ضبط الفلاتر للافتراضي
                 </button>
             </div>
 
+            <!-- Row 1: City & Bedrooms -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- 1. City Filter (المدينة) -->
-                <div class="space-y-2">
+                <!-- 1. City Filter (المدينة) - Default: ALL CITIES -->
+                <div class="space-y-2 md:col-span-2">
                     <label class="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                        <span>المدينة <span class="text-slate-500 font-normal">(اختر مدينة أو حدد الكل)</span></span>
+                        <span>المدينة المستهدفة <span class="text-emerald-400 font-normal">(افتراضياً: جميع مدن المملكة كاملة)</span></span>
                     </label>
-                    <select id="filter-city" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition">
-                        <option value="الكل" selected>الكل (جميع المدن / الرياض افتراضياً)</option>
-                        <option value="الرياض">الرياض</option>
-                        <option value="جدة">جدة</option>
-                        <option value="الدمام">الدمام</option>
-                        <option value="مكة المكرمة">مكة المكرمة</option>
-                        <option value="المدينة المنورة">المدينة المنورة</option>
-                        <option value="الخبر">الخبر</option>
-                        <option value="تبوك">تبوك</option>
-                        <option value="أبها">أبها</option>
-                        <option value="الطائف">الطائف</option>
-                        <option value="بريدة">بريدة</option>
-                        <option value="خميس مشيط">خميس مشيط</option>
-                        <option value="الهفوف">الهفوف</option>
-                        <option value="الجبيل">الجبيل</option>
-                        <option value="حائل">حائل</option>
-                        <option value="نجران">نجران</option>
-                        <option value="ينبع">ينبع</option>
-                        <option value="جازان">جازان</option>
-                        <option value="custom">-- مدينة أخرى (كتابة يدوية) --</option>
-                    </select>
-                    <input id="filter-city-custom" type="text" placeholder="اكتب اسم المدينة هنا..." class="hidden w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 mt-2">
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <select id="filter-city" class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition">
+                            <option value="الكل" selected>الكل (جميع مدن ومناطق المملكة كاملة)</option>
+                            <option value="الرياض">الرياض</option>
+                            <option value="جدة">جدة</option>
+                            <option value="الدمام">الدمام</option>
+                            <option value="مكة المكرمة">مكة المكرمة</option>
+                            <option value="المدينة المنورة">المدينة المنورة</option>
+                            <option value="الخبر">الخبر</option>
+                            <option value="تبوك">تبوك</option>
+                            <option value="أبها">أبها</option>
+                            <option value="الطائف">الطائف</option>
+                            <option value="بريدة">بريدة</option>
+                            <option value="خميس مشيط">خميس مشيط</option>
+                            <option value="الهفوف">الهفوف</option>
+                            <option value="الجبيل">الجبيل</option>
+                            <option value="حائل">حائل</option>
+                            <option value="نجران">نجران</option>
+                            <option value="ينبع">ينبع</option>
+                            <option value="جازان">جازان</option>
+                            <option value="القطيف">القطيف</option>
+                            <option value="الخرج">الخرج</option>
+                            <option value="custom">-- مدينة أخرى (كتابة يدوية) --</option>
+                        </select>
+                        <input id="filter-city-custom" type="text" placeholder="اكتب اسم المدينة هنا..." class="hidden flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                    </div>
                 </div>
 
-                <!-- 2. Category Filter (القسم / الفئة) -->
+                <!-- 2. Bedrooms Filter (غرف النوم) -->
                 <div class="space-y-2">
-                    <label class="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                        <span>القسم / الفئة <span class="text-slate-500 font-normal">(متعدد الخيارات)</span></span>
-                    </label>
-                    <select id="filter-categories" multiple size="3" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition">
-                        <option value="الكل" selected>الكل (جميع الأقسام والفئات)</option>
-                        <option value="شقق للإيجار">شقق للإيجار</option>
-                        <option value="شقق للبيع">شقق للبيع</option>
-                        <option value="فلل للبيع">فلل للبيع</option>
-                        <option value="فلل للإيجار">فلل للإيجار</option>
-                        <option value="أراضي للبيع">أراضي للبيع</option>
-                        <option value="دور للإيجار">دور للإيجار</option>
-                        <option value="دور للبيع">دور للبيع</option>
-                        <option value="عمارة للبيع">عمارة للبيع</option>
-                        <option value="استراحة للإيجار">استراحة للإيجار</option>
-                        <option value="استراحة للبيع">استراحة للبيع</option>
-                        <option value="محلات للإيجار">محلات للإيجار</option>
-                        <option value="مكاتب للإيجار">مكاتب للإيجار</option>
-                        <option value="مستودع للإيجار">مستودع للإيجار</option>
-                    </select>
-                </div>
-
-                <!-- 3. Bedrooms Filter (غرف النوم) -->
-                <div class="space-y-2">
-                    <label class="text-xs font-semibold text-slate-300">عدد غرف النوم</label>
+                    <label class="text-xs font-semibold text-slate-300">عدد غرف النوم (اختياري)</label>
                     <select id="filter-beds" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition">
                         <option value="الكل" selected>الكل (أي عدد غرف نوم)</option>
                         <option value="1">1 غرفة نوم</option>
@@ -170,12 +152,136 @@
                         <option value="3">3 غرف نوم</option>
                         <option value="4">4 غرف نوم</option>
                         <option value="5">5 غرف نوم</option>
-                        <option value="6+">6+ غرف نوم فاكثر</option>
+                        <option value="6+">6+ غرف نوم فأكثر</option>
                     </select>
                 </div>
             </div>
 
-            <!-- Range Sliders (السعر والمساحة) & Neighborhood (الحي) -->
+            <!-- Row 2: Category Filter (القسم / الفئة) with Rock-Solid Checkbox Grid -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-semibold text-slate-300">القسم / الفئة المستهدفة <span class="text-slate-500 font-normal">(انقر للاختيار - لا يتم إلغاء التحديد بالنقر خارجاً)</span></label>
+                    <span id="category-summary" class="text-xs text-emerald-400 font-semibold">محدد: الكل (جميع الأقسام)</span>
+                </div>
+                
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 pt-1">
+                    <!-- All Option -->
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="الكل" id="cat-all" checked onchange="handleCatAllChange(this)" class="hidden">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>الكل (جميع الأقسام)</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+
+                    <!-- Individual Categories -->
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="شقق للإيجار" onchange="handleCatItemChange(this)" class="hidden cat-item">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>شقق للإيجار</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="شقق للبيع" onchange="handleCatItemChange(this)" class="hidden cat-item">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>شقق للبيع</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="فلل للبيع" onchange="handleCatItemChange(this)" class="hidden cat-item">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>فلل للبيع</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="فلل للإيجار" onchange="handleCatItemChange(this)" class="hidden cat-item">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>فلل للإيجار</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="أراضي للبيع" onchange="handleCatItemChange(this)" class="hidden cat-item">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>أراضي للبيع</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="دور للإيجار" onchange="handleCatItemChange(this)" class="hidden cat-item">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>دور للإيجار</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="دور للبيع" onchange="handleCatItemChange(this)" class="hidden cat-item">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>دور للبيع</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="عمارة للبيع" onchange="handleCatItemChange(this)" class="hidden cat-item">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>عمارة للبيع</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="استراحة للإيجار" onchange="handleCatItemChange(this)" class="hidden cat-item">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>استراحة للإيجار</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="استراحة للبيع" onchange="handleCatItemChange(this)" class="hidden cat-item">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>استراحة للبيع</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="محلات للإيجار" onchange="handleCatItemChange(this)" class="hidden cat-item">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>محلات للإيجار</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="مكاتب للإيجار" onchange="handleCatItemChange(this)" class="hidden cat-item">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>مكاتب للإيجار</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+
+                    <label class="checkbox-pill cursor-pointer">
+                        <input type="checkbox" value="مستودع للإيجار" onchange="handleCatItemChange(this)" class="hidden cat-item">
+                        <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-semibold text-slate-300 flex items-center justify-between hover:border-slate-600 transition select-none">
+                            <span>مستودع للإيجار</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Row 3: Range Sliders (السعر والمساحة) & Neighborhood (الحي) -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
                 <!-- Price Range Slider (السعر) -->
                 <div class="space-y-3 bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
@@ -185,11 +291,11 @@
                     </div>
                     <div class="space-y-2">
                         <div class="flex items-center gap-2 text-xs text-slate-400">
-                            <span>الحد الأدنى:</span>
+                            <span>الأدنى:</span>
                             <input id="price-min" type="number" min="0" max="10000000" step="5000" value="0" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs">
                         </div>
                         <div class="flex items-center gap-2 text-xs text-slate-400">
-                            <span>الحد الأقصى:</span>
+                            <span>الأقصى:</span>
                             <input id="price-max" type="number" min="0" max="20000000" step="10000" value="0" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs" placeholder="0 = بلا حد">
                         </div>
                     </div>
@@ -203,11 +309,11 @@
                     </div>
                     <div class="space-y-2">
                         <div class="flex items-center gap-2 text-xs text-slate-400">
-                            <span>الحد الأدنى:</span>
+                            <span>الأدنى:</span>
                             <input id="area-min" type="number" min="0" max="10000" step="25" value="0" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs">
                         </div>
                         <div class="flex items-center gap-2 text-xs text-slate-400">
-                            <span>الحد الأقصى:</span>
+                            <span>الأقصى:</span>
                             <input id="area-max" type="number" min="0" max="50000" step="50" value="0" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs" placeholder="0 = بلا حد">
                         </div>
                     </div>
@@ -220,7 +326,7 @@
                         <span class="text-slate-500 font-normal">اختياري</span>
                     </label>
                     <input id="filter-districts" type="text" placeholder="اكتب الأحياء (مفصولة بفاصلة) أو اتركها للكل..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
-                    <div class="text-[11px] text-slate-500">مثال: حي النرجس, حي الياسمين, حي المنار (أو فارغ للجميع)</div>
+                    <div class="text-[11px] text-slate-500">مثال: حي النرجس, حي الياسمين (أو فارغ للجميع)</div>
                 </div>
             </div>
 
@@ -228,7 +334,7 @@
             <div class="flex flex-wrap items-center justify-between pt-4 border-t border-slate-700/50 gap-4">
                 <div class="flex items-center gap-3">
                     <button id="btn-start" onclick="startCrawlerWithFilters()" class="px-6 py-2.5 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition disabled:opacity-50 disabled:pointer-events-none">
-                        <i class="fa-solid fa-play"></i> بدء الزحف الفوري بالفلاتر
+                        <i class="fa-solid fa-play"></i> بدء زحف جديد بالفلاتر
                     </button>
                     <button id="btn-stop" onclick="stopCrawler()" disabled class="px-6 py-2.5 rounded-xl font-bold text-sm bg-amber-600 hover:bg-amber-500 active:scale-95 text-white flex items-center gap-2 shadow-lg shadow-amber-600/30 transition disabled:opacity-50 disabled:pointer-events-none">
                         <i class="fa-solid fa-pause"></i> إيقاف مؤقت
@@ -273,27 +379,25 @@
                 </div>
                 <div class="flex items-center justify-between text-xs text-slate-400 pt-4 border-t border-slate-700/50 mt-4">
                     <span>صفحات قيد الانتظار: <b id="metric-pending" class="text-white font-mono">0</b></span>
-                    <span>صفحات منتهية: <b id="metric-empty" class="text-white font-mono">0</b></span>
+                    <span>صفحات فارغة: <b id="metric-empty" class="text-white font-mono">0</b></span>
                 </div>
             </div>
 
-            <!-- Documents & Storage Status -->
+            <!-- Active Target Info -->
             <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between">
                 <div>
-                    <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">الملفات والمخرجات المباشرة</span>
+                    <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">الهدف النشط وقاعدة البيانات</span>
                     <div class="mt-3 space-y-2 text-xs">
-                        <div class="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
-                            <span class="flex items-center gap-2"><i class="fa-solid fa-file-excel text-emerald-400"></i> إكسل (XLSX منسق RTL)</span>
-                            <span id="file-excel-size" class="font-mono text-slate-300">0 MB</span>
+                        <div class="p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
+                            <span class="text-slate-400">المدينة / النطاق:</span> <b id="metric-active-city" class="text-emerald-400">جميع مدن المملكة</b>
                         </div>
-                        <div class="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
-                            <span class="flex items-center gap-2"><i class="fa-solid fa-file-csv text-blue-400"></i> ملف CSV (53 عمود)</span>
-                            <span id="file-csv-size" class="font-mono text-slate-300">0 MB</span>
+                        <div class="p-2 rounded-lg bg-slate-800/60 border border-slate-700/50 truncate">
+                            <span class="text-slate-400">الرابط:</span> <span id="metric-active-url" class="font-mono text-slate-300 text-[11px]">https://sa.aqar.fm/عقارات</span>
                         </div>
                     </div>
                 </div>
                 <div class="text-xs text-slate-400 pt-2">
-                    قاعدة بيانات SQLite: <span id="file-db-size" class="font-mono text-white">0 MB</span>
+                    حجم قاعدة البيانات: <span id="file-db-size" class="font-mono text-white">0 MB</span>
                 </div>
             </div>
         </section>
@@ -315,7 +419,7 @@
         <section class="glass-panel p-6 rounded-2xl">
             <div class="flex items-center justify-between pb-4 border-b border-slate-700/60">
                 <h3 class="text-base font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-clock-rotate-left text-slate-400"></i> سجل عمليات الزحف والمخرجات
+                    <i class="fa-solid fa-clock-rotate-left text-slate-400"></i> سجل العمليات والمستندات المنشأة لكل عملية
                 </h3>
             </div>
             <div class="overflow-x-auto mt-4">
@@ -329,7 +433,7 @@
                             <th class="p-3">الحالة</th>
                             <th class="p-3">الإعلانات</th>
                             <th class="p-3">الصفحات</th>
-                            <th class="p-3 text-left">تحميل المخرجات</th>
+                            <th class="p-3 text-left">تحميل المستندات</th>
                         </tr>
                     </thead>
                     <tbody id="history-tbody" class="divide-y divide-slate-800">
@@ -354,6 +458,40 @@
             }
         });
 
+        // Category Checkbox Handlers
+        function handleCatAllChange(allCheckbox) {
+            if (allCheckbox.checked) {
+                document.querySelectorAll('.cat-item').forEach(cb => cb.checked = false);
+            }
+            updateCategorySummary();
+        }
+
+        function handleCatItemChange(itemCheckbox) {
+            const allCheckbox = document.getElementById('cat-all');
+            const items = document.querySelectorAll('.cat-item');
+            const anyChecked = Array.from(items).some(cb => cb.checked);
+
+            if (anyChecked) {
+                allCheckbox.checked = false;
+            } else {
+                allCheckbox.checked = true;
+            }
+            updateCategorySummary();
+        }
+
+        function updateCategorySummary() {
+            const allCheckbox = document.getElementById('cat-all');
+            const summarySpan = document.getElementById('category-summary');
+            if (allCheckbox.checked) {
+                summarySpan.innerText = 'محدد: الكل (جميع الأقسام)';
+                summarySpan.className = 'text-xs text-emerald-400 font-semibold';
+            } else {
+                const checkedItems = Array.from(document.querySelectorAll('.cat-item:checked')).map(cb => cb.value);
+                summarySpan.innerText = `محدد (${checkedItems.length}): ${checkedItems.join(', ')}`;
+                summarySpan.className = 'text-xs text-teal-300 font-semibold truncate max-w-md';
+            }
+        }
+
         // Range displays sync
         function updateRangeLabels() {
             const pMin = parseInt(document.getElementById('price-min').value) || 0;
@@ -377,10 +515,9 @@
             document.getElementById('filter-city-custom').value = '';
             document.getElementById('filter-city-custom').classList.add('hidden');
 
-            const catSelect = document.getElementById('filter-categories');
-            for (let i = 0; i < catSelect.options.length; i++) {
-                catSelect.options[i].selected = (catSelect.options[i].value === 'الكل');
-            }
+            document.getElementById('cat-all').checked = true;
+            document.querySelectorAll('.cat-item').forEach(cb => cb.checked = false);
+            updateCategorySummary();
 
             document.getElementById('filter-beds').value = 'الكل';
             document.getElementById('price-min').value = 0;
@@ -394,15 +531,19 @@
         function collectFilters() {
             let city = document.getElementById('filter-city').value;
             if (city === 'custom') {
-                city = document.getElementById('filter-city-custom').value.trim() || 'الرياض';
+                city = document.getElementById('filter-city-custom').value.trim() || 'الكل';
             }
 
-            const catSelect = document.getElementById('filter-categories');
-            const selectedCats = Array.from(catSelect.selectedOptions).map(opt => opt.value);
+            const allChecked = document.getElementById('cat-all').checked;
+            let categories = ['الكل'];
+            if (!allChecked) {
+                const checked = Array.from(document.querySelectorAll('.cat-item:checked')).map(cb => cb.value);
+                if (checked.length > 0) categories = checked;
+            }
 
             return {
                 city: city,
-                categories: selectedCats.length > 0 ? selectedCats : ['الكل'],
+                categories: categories,
                 beds: document.getElementById('filter-beds').value,
                 min_price: parseFloat(document.getElementById('price-min').value) || 0,
                 max_price: parseFloat(document.getElementById('price-max').value) || 0,
@@ -475,8 +616,8 @@
                 document.getElementById('metric-pending').innerText = s.pages_pending.toLocaleString();
                 document.getElementById('metric-empty').innerText = s.pages_empty.toLocaleString();
 
-                document.getElementById('file-excel-size').innerText = s.excel_exists ? `${s.excel_size_mb} MB` : 'غير مكتمل';
-                document.getElementById('file-csv-size').innerText = s.csv_exists ? `${s.csv_size_mb} MB` : 'فارغ';
+                document.getElementById('metric-active-city').innerText = s.active_target || 'جميع مدن المملكة';
+                document.getElementById('metric-active-url').innerText = s.active_url || 'https://sa.aqar.fm/عقارات';
                 document.getElementById('file-db-size').innerText = `${s.db_size_mb} MB`;
 
                 const btnStart = document.getElementById('btn-start');
@@ -486,7 +627,7 @@
                 if (s.is_running) {
                     btnStart.disabled = true;
                     btnStop.disabled = false;
-                    crawlerBadge.innerHTML = `<span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span> <span class="text-emerald-400 font-semibold font-mono">الزاحف يعمل بنشاط</span>`;
+                    crawlerBadge.innerHTML = `<span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span> <span class="text-emerald-400 font-semibold font-mono">الزاحف يعمل بنشاط...</span>`;
                 } else {
                     btnStart.disabled = false;
                     btnStop.disabled = true;
@@ -521,25 +662,31 @@
                 tbody.innerHTML = data.runs.map(r => {
                     const statusColor = r.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
                                         r.status === 'RUNNING' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+
+                    const xlsxBtn = r.excel_file ? `
+                        <a href="/download/${encodeURIComponent(r.excel_file)}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition">
+                            <i class="fa-solid fa-file-excel"></i> XLSX
+                        </a>
+                    ` : `<span class="text-slate-600 px-2 py-1">-</span>`;
+
+                    const csvBtn = r.csv_file ? `
+                        <a href="/download/${encodeURIComponent(r.csv_file)}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 transition">
+                            <i class="fa-solid fa-file-csv"></i> CSV
+                        </a>
+                    ` : `<span class="text-slate-600 px-2 py-1">-</span>`;
+
                     return `
                         <tr class="hover:bg-slate-800/30 transition">
                             <td class="p-3 font-mono font-semibold">#${r.id}</td>
                             <td class="p-3 text-slate-400">${r.started_at ? r.started_at.slice(0, 19).replace('T', ' ') : '-'}</td>
                             <td class="p-3 text-slate-400">${r.finished_at ? r.finished_at.slice(0, 19).replace('T', ' ') : '-'}</td>
-                            <td class="p-3 text-slate-300 text-[11px] font-mono">${r.filter_desc || 'Default'}</td>
+                            <td class="p-3 text-slate-200 text-xs font-semibold">${r.filter_desc || 'Default'}</td>
                             <td class="p-3"><span class="px-2 py-0.5 rounded text-[11px] font-semibold border ${statusColor}">${r.status}</span></td>
-                            <td class="p-3 font-semibold text-white">${r.listings_count.toLocaleString()}</td>
+                            <td class="p-3 font-bold text-white">${r.listings_count.toLocaleString()}</td>
                             <td class="p-3 text-slate-400">${r.pages_done} / ${r.total_pages}</td>
-                            <td class="p-3 text-left space-x-2 space-x-reverse">
-                                <a href="/download/aqar_riyadh_city_53cols.xlsx" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition">
-                                    <i class="fa-solid fa-file-excel"></i> XLSX
-                                </a>
-                                <a href="/download/aqar_riyadh_city_53cols.csv" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 transition">
-                                    <i class="fa-solid fa-file-csv"></i> CSV
-                                </a>
-                                <a href="/download/aqar_riyadh_city.db" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 transition">
-                                    <i class="fa-solid fa-database"></i> DB
-                                </a>
+                            <td class="p-3 text-left space-x-2 space-x-reverse whitespace-nowrap">
+                                ${xlsxBtn}
+                                ${csvBtn}
                             </td>
                         </tr>
                     `;

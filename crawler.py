@@ -1,6 +1,6 @@
 """
 High-throughput crawler module for Aqar.fm using Next.js streaming deserialization.
-Supports multi-city and granular dynamic filters (Category, Price Range, Area Range, District, Beds).
+Version 2.1: Multi-city, persistent filters, isolated runs, and automatic Excel exports.
 """
 
 import os
@@ -9,6 +9,7 @@ import csv
 import json
 import time
 import random
+import shutil
 import sqlite3
 import signal
 import threading
@@ -18,10 +19,11 @@ from datetime import datetime
 import concurrent.futures
 
 from config import (
-    BASE_SITE_URL, BASE_CITY_URL, FLARESOLVERR_URL, DB_PATH, CSV_PATH,
+    BASE_SITE_URL, FLARESOLVERR_URL, DB_PATH, DATA_DIR,
     MAX_WORKERS, REQUEST_TIMEOUT, FLARE_TIMEOUT, CSV_HEADERS
 )
 from init_db import init_database
+from export_excel import export_to_excel
 
 CATEGORY_SLUG_MAP = {
     'شقق للإيجار': 'شقق-للإيجار',
@@ -54,17 +56,16 @@ class AqarCrawler:
             signal.signal(signal.SIGINT, self._handle_exit)
             signal.signal(signal.SIGTERM, self._handle_exit)
         except Exception:
-            pass  # Subthread execution fallback
+            pass
 
         self._init_db()
-        self._init_csv()
-        self._init_urls()
+        self._init_paths_and_urls()
 
     def _log(self, msg):
         self.log_callback(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
     def _handle_exit(self, signum, frame):
-        self._log(f"Received exit signal {signum}. Stopping crawler loop...")
+        self._log(f"Received exit signal {signum}. Halting crawler...")
         self.running = False
 
     def stop(self):
@@ -74,41 +75,46 @@ class AqarCrawler:
     def _init_db(self):
         init_database(DB_PATH)
 
-    def _init_csv(self):
-        if not os.path.exists(CSV_PATH) or os.path.getsize(CSV_PATH) == 0:
-            with open(CSV_PATH, 'w', newline='', encoding='utf-8-sig') as f:
-                writer = csv.writer(f)
-                writer.writerow(CSV_HEADERS)
+    def _init_paths_and_urls(self):
+        """Builds unique run files and search URLs based on filter selections."""
+        # 1. City selection (Default: ALL CITIES across the kingdom)
+        city_raw = self.filters.get('city') or ''
+        if not city_raw or 'الكل' in city_raw or city_raw.strip() in ('', 'all', 'الكل (جميع مدن المملكة)'):
+            self.is_all_cities = True
+            self.target_city = 'جميع المدن'
+        else:
+            self.is_all_cities = False
+            self.target_city = city_raw.strip()
 
-    def _init_urls(self):
-        """Constructs target URL based on selected filters."""
-        # 1. City selection
-        city = self.filters.get('city') or 'الرياض'
-        if 'الكل' in city or not city.strip():
-            city = 'الرياض'
-        self.target_city = city.strip()
-
-        # 2. Category selection
+        # 2. Categories selection
         cats = self.filters.get('categories') or ['الكل']
         if isinstance(cats, str):
             cats = [c.strip() for c in cats.split(',') if c.strip()]
         self.target_categories = cats
+        single_cat = len(cats) == 1 and cats[0] in CATEGORY_SLUG_MAP
 
-        # If a single non-'all' category is selected, use category slug
-        if len(cats) == 1 and cats[0] in CATEGORY_SLUG_MAP:
-            cat_slug = CATEGORY_SLUG_MAP[cats[0]]
-            self.base_search_url = f"{BASE_SITE_URL}/{urllib.parse.quote(cat_slug)}/{urllib.parse.quote(self.target_city)}"
+        # 3. Construct Base Search URL
+        if self.is_all_cities:
+            if single_cat:
+                cat_slug = CATEGORY_SLUG_MAP[cats[0]]
+                self.base_search_url = f"{BASE_SITE_URL}/{urllib.parse.quote(cat_slug)}"
+            else:
+                self.base_search_url = f"{BASE_SITE_URL}/عقارات"
         else:
-            self.base_search_url = f"{BASE_SITE_URL}/عقارات/{urllib.parse.quote(self.target_city)}"
+            if single_cat:
+                cat_slug = CATEGORY_SLUG_MAP[cats[0]]
+                self.base_search_url = f"{BASE_SITE_URL}/{urllib.parse.quote(cat_slug)}/{urllib.parse.quote(self.target_city)}"
+            else:
+                self.base_search_url = f"{BASE_SITE_URL}/عقارات/{urllib.parse.quote(self.target_city)}"
 
-        # 3. Numeric & Range Filters
+        # 4. Numeric & Range Filters
         self.min_price = float(self.filters.get('min_price') or 0)
         self.max_price = float(self.filters.get('max_price') or 0)
         self.min_area = float(self.filters.get('min_area') or 0)
         self.max_area = float(self.filters.get('max_area') or 0)
         self.beds = str(self.filters.get('beds') or '').strip()
 
-        # 4. Districts filter
+        # 5. Districts filter
         dists = self.filters.get('districts') or ['الكل']
         if isinstance(dists, str):
             dists = [d.strip() for d in dists.split(',') if d.strip()]
@@ -123,7 +129,20 @@ class AqarCrawler:
         if self.beds and self.beds not in ('الكل', '', '0'): params.append(f"beds={self.beds}")
 
         self.query_string = ("?" + "&".join(params)) if params else ""
-        self._log(f"Target URL: {self.base_search_url}{self.query_string}")
+        self.target_full_url = f"{self.base_search_url}{self.query_string}"
+        self._log(f"Constructed Search Target: {self.target_full_url}")
+
+        # Unique Output Files for this Run
+        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        safe_city = re.sub(r'[^\w\-]', '_', self.target_city)
+        self.csv_filename = f"aqar_{safe_city}_{ts}_53cols.csv"
+        self.excel_filename = f"aqar_{safe_city}_{ts}_53cols.xlsx"
+        self.csv_path = os.path.join(DATA_DIR, self.csv_filename)
+        self.excel_path = os.path.join(DATA_DIR, self.excel_filename)
+
+        # Initialize fresh CSV file for this run
+        with open(self.csv_path, 'w', newline='', encoding='utf-8-sig') as f:
+            csv.writer(f).writerow(CSV_HEADERS)
 
     def refresh_clearance(self):
         with self.lock:
@@ -165,7 +184,6 @@ class AqarCrawler:
         if self.cookie_header:
             headers['Cookie'] = self.cookie_header
 
-        # Safe single encoding
         parsed = urllib.parse.urlparse(url)
         clean_path = urllib.parse.quote(urllib.parse.unquote(parsed.path))
         full_url = f"{parsed.scheme}://{parsed.netloc}{clean_path}"
@@ -205,19 +223,26 @@ class AqarCrawler:
 
     def matches_filters(self, item):
         """Dual-layer client side validation against active filters."""
-        # 1. Price check
+        # 1. City check (if specific city targeted)
+        if not self.is_all_cities:
+            loc = item.get('location') or {}
+            item_city = loc.get('city', '')
+            if self.target_city not in item_city and item_city not in self.target_city:
+                return False
+
+        # 2. Price check
         if self.min_price > 0 or self.max_price > 0:
             price = float(item.get('price') or 0)
             if self.min_price > 0 and price < self.min_price: return False
             if self.max_price > 0 and price > self.max_price: return False
 
-        # 2. Area check
+        # 3. Area check
         if self.min_area > 0 or self.max_area > 0:
             area = float(item.get('area') or 0)
             if self.min_area > 0 and area < self.min_area: return False
             if self.max_area > 0 and area > self.max_area: return False
 
-        # 3. Beds check
+        # 4. Beds check
         if self.beds and self.beds not in ('الكل', '', '0'):
             item_beds = str(item.get('beds') or '')
             if self.beds.endswith('+'):
@@ -226,13 +251,13 @@ class AqarCrawler:
             else:
                 if item_beds != self.beds: return False
 
-        # 4. Category check
+        # 5. Category check
         if self.target_categories and not any('الكل' in c for c in self.target_categories):
             cat_name = item.get('categoryName', '')
             if not any(target in cat_name for target in self.target_categories):
                 return False
 
-        # 5. District check
+        # 6. District check
         if self.target_districts and not any('الكل' in d for d in self.target_districts):
             loc = item.get('location') or {}
             district = loc.get('district', '')
@@ -245,6 +270,7 @@ class AqarCrawler:
         loc = item.get('location') or {}
         user = item.get('user') or {}
         aid = item.get('id')
+        item_city = loc.get('city') or self.target_city
         imgs = item.get('imgs') or []
         img_urls = [f"https://images.aqar.fm/webp/750x0/props/{i}" if not i.startswith('http') else i for i in imgs]
         videos = item.get('videos') or []
@@ -252,15 +278,15 @@ class AqarCrawler:
         c_time = datetime.fromtimestamp(item['create_time']).strftime('%Y-%m-%d %H:%M') if item.get('create_time') else ""
         u_time = datetime.fromtimestamp(item['last_update']).strftime('%Y-%m-%d %H:%M') if item.get('last_update') else ""
 
-        page_search_url = f"{self.base_search_url}/{page_num}{self.query_string}" if page_num > 1 else f"{self.base_search_url}{self.query_string}"
+        page_search_url = f"{self.base_search_url}/{page_num}{self.query_string}" if page_num > 1 else self.target_full_url
         direct_path = item.get('path') or f"/ad/{aid}"
         full_ad_url = f"{BASE_SITE_URL}{direct_path}"
         short_ad_url = f"{BASE_SITE_URL}/ad/{aid}"
 
         return [
-            aid, f"عقارات {self.target_city}", item.get('categoryName', ''), item.get('title', ''), item.get('price', ''),
+            aid, f"عقارات {item_city}", item.get('categoryName', ''), item.get('title', ''), item.get('price', ''),
             item.get('rent_period_text', ''), item.get('rega_total_price', ''), item.get('area', ''), item.get('deed_area', ''),
-            self.target_city, loc.get('district', ''), item.get('address', ''), item.get('advertisement_number', ''),
+            item_city, loc.get('district', ''), item.get('address', ''), item.get('advertisement_number', ''),
             item.get('deed_number', ''), item.get('plan_number', ''), item.get('parcel_number', ''),
             f"{item.get('plan_number', '')} / {item.get('parcel_number', '')}".strip(" /"),
             "نعم" if item.get('licensed') else "لا", user.get('name', ''), user.get('iam_fal_license_number', ''),
@@ -278,43 +304,44 @@ class AqarCrawler:
         ]
 
     def run(self):
-        self._log(f"Starting crawl for city: {self.target_city}...")
+        self._log(f"Starting crawl for: {self.target_city} | Target URL: {self.target_full_url}")
         self.refresh_clearance()
 
-        init_url = f"{self.base_search_url}{self.query_string}"
-        p1 = self.fetch_url(init_url)
+        # Fetch Page 1
+        p1 = self.fetch_url(self.target_full_url)
 
-        # Detect total count
         m_count = re.search(r'count\\*":\s*(\d+)', p1) if p1 else None
         if not m_count and p1:
             m_count = re.search(r'count="(\d+)"', p1)
 
-        total_ads = int(m_count.group(1)) if m_count else 1000
+        total_ads = int(m_count.group(1)) if m_count else 2000
         total_pages = max(1, (total_ads // 20) + 1)
-        self._log(f"[Total Found] {total_ads:,} active ads across ~{total_pages:,} pages for {self.target_city}.")
+        self._log(f"[Total Found] {total_ads:,} active ads across ~{total_pages:,} pages.")
 
-        # Generate filter summary text
-        filter_summary = f"City: {self.target_city}"
+        # Filter summary
+        filter_summary = f"المدينة: {self.target_city}"
         if not any('الكل' in c for c in self.target_categories):
-            filter_summary += f" | Cat: {','.join(self.target_categories)}"
+            filter_summary += f" | القسم: {','.join(self.target_categories)}"
         if self.min_price > 0 or self.max_price > 0:
-            filter_summary += f" | Price: {int(self.min_price):,}-{int(self.max_price):,}"
+            filter_summary += f" | السعر: {int(self.min_price):,}-{int(self.max_price):,}"
         if self.min_area > 0 or self.max_area > 0:
-            filter_summary += f" | Area: {int(self.min_area):,}-{int(self.max_area):,}"
+            filter_summary += f" | المساحة: {int(self.min_area):,}-{int(self.max_area):,}"
         if self.beds and self.beds != 'الكل':
-            filter_summary += f" | Beds: {self.beds}"
+            filter_summary += f" | غرف: {self.beds}"
 
+        # CRITICAL FIX FOR ISSUE 3: Always initialize a clean queue for the new crawl!
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        
-        # Reset queue for new target configuration
-        cur.execute("DELETE FROM pages WHERE status != 'done'")
-        pages_data = [(p, 'pending', None) for p in range(1, total_pages + 1)]
-        cur.executemany("INSERT OR IGNORE INTO pages (page_num, status, scraped_at) VALUES (?, ?, ?)", pages_data)
+        cur.execute("DELETE FROM pages")
+        cur.execute("DELETE FROM listings")
 
-        # Insert new run record
-        cur.execute("INSERT INTO runs (started_at, status, total_pages, filter_desc, csv_file) VALUES (?, 'RUNNING', ?, ?, ?)",
-                    (datetime.now().isoformat(), total_pages, filter_summary, os.path.basename(CSV_PATH)))
+        pages_data = [(p, 'pending', None) for p in range(1, total_pages + 1)]
+        cur.executemany("INSERT INTO pages (page_num, status, scraped_at) VALUES (?, ?, ?)", pages_data)
+
+        cur.execute("""
+            INSERT INTO runs (started_at, status, total_pages, filter_desc, csv_file, excel_file)
+            VALUES (?, 'RUNNING', ?, ?, ?, ?)
+        """, (datetime.now().isoformat(), total_pages, filter_summary, self.csv_filename, self.excel_filename))
         self.current_run_id = cur.lastrowid
         conn.commit()
         conn.close()
@@ -330,16 +357,15 @@ class AqarCrawler:
             conn.close()
 
             if not batch:
-                self._log("[Crawler] Finished! All target pages processed.")
+                self._log("[Crawler] All pages processed! Completing crawl.")
                 break
 
             def scrape_worker(p_num):
                 if not self.running:
                     return p_num, []
-                url = f"{self.base_search_url}/{p_num}{self.query_string}" if p_num > 1 else f"{self.base_search_url}{self.query_string}"
+                url = f"{self.base_search_url}/{p_num}{self.query_string}" if p_num > 1 else self.target_full_url
                 html = self.fetch_url(url)
                 items = self.parse_page_listings(html)
-                # Apply dual-layer filter
                 filtered_items = [it for it in items if self.matches_filters(it)]
                 time.sleep(random.uniform(0.08, 0.15))
                 return p_num, filtered_items
@@ -377,22 +403,43 @@ class AqarCrawler:
             conn.close()
 
             if csv_rows:
-                with open(CSV_PATH, 'a', newline='', encoding='utf-8-sig') as f:
+                with open(self.csv_path, 'a', newline='', encoding='utf-8-sig') as f:
                     csv.writer(f).writerows(csv_rows)
 
             el = time.time() - t_start
             spd = scraped_this_session / el if el > 0 else 0
             self._log(f"Progress ({self.target_city}): {total_listings:,} ads ({pages_done:,} pages done) | {spd:.1f} ads/sec")
 
+        # Automatically generate Excel for this run upon completion
+        final_status = 'COMPLETED' if self.running else 'PAUSED'
+        self._log(f"Crawl {final_status}. Automatically compiling Excel workbook...")
+        try:
+            export_to_excel(self.csv_path, self.excel_path)
+            self._log(f"Excel workbook generated: {self.excel_filename}")
+        except Exception as e:
+            self._log(f"Auto Excel generation error: {e}")
+
+        # Update latest pointers
+        latest_csv = os.path.join(DATA_DIR, 'aqar_latest_53cols.csv')
+        latest_xlsx = os.path.join(DATA_DIR, 'aqar_latest_53cols.xlsx')
+        try:
+            shutil.copyfile(self.csv_path, latest_csv)
+            if os.path.exists(self.excel_path):
+                shutil.copyfile(self.excel_path, latest_xlsx)
+        except Exception:
+            pass
+
+        # Finalize run record in SQLite
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        final_status = 'COMPLETED' if self.running else 'PAUSED'
         if self.current_run_id:
-            c.execute("UPDATE runs SET finished_at = ?, status = ? WHERE id = ?",
-                      (datetime.now().isoformat(), final_status, self.current_run_id))
+            c.execute("""
+                UPDATE runs SET finished_at = ?, status = ?, excel_file = ?, csv_file = ?
+                WHERE id = ?
+            """, (datetime.now().isoformat(), final_status, self.excel_filename, self.csv_filename, self.current_run_id))
             conn.commit()
         conn.close()
-        self._log(f"Crawl loop ended with status: {final_status}")
+        self._log(f"Run #{self.current_run_id} finished successfully ({final_status}) with files {self.excel_filename} & {self.csv_filename}.")
 
 if __name__ == '__main__':
     AqarCrawler().run()

@@ -52,12 +52,22 @@ def init_database(db_path=DB_PATH):
     cur = conn.cursor()
     cur.executescript(SCHEMA_SQL)
 
-    # Safe migration: add filter_desc if missing
+    # Safe migration: add missing columns to runs if upgrading from earlier version
     cur.execute("PRAGMA table_info(runs)")
     cols = [col[1] for col in cur.fetchall()]
     if 'filter_desc' not in cols:
         try:
             cur.execute("ALTER TABLE runs ADD COLUMN filter_desc TEXT DEFAULT 'All Filters (Default)'")
+        except Exception:
+            pass
+    if 'csv_file' not in cols:
+        try:
+            cur.execute("ALTER TABLE runs ADD COLUMN csv_file TEXT")
+        except Exception:
+            pass
+    if 'excel_file' not in cols:
+        try:
+            cur.execute("ALTER TABLE runs ADD COLUMN excel_file TEXT")
         except Exception:
             pass
 

@@ -1,6 +1,6 @@
 """
 ScrapeDatAqar Web Interface & Controller
-Provides REST API and Dashboard for readiness checks, crawl control, and history log.
+Version 2.1: Multi-city selection, persistent filter controls, isolated crawl runs, and auto-export.
 """
 
 import os
@@ -14,8 +14,8 @@ from flask import Flask, jsonify, render_template, request, send_from_directory
 import requests
 
 from config import (
-    BASE_SITE_URL, BASE_CITY_URL, FLARESOLVERR_URL, DB_PATH, CSV_PATH, EXCEL_PATH,
-    PORT, DATA_DIR, SUPPORTED_CITIES, SUPPORTED_CATEGORIES
+    BASE_SITE_URL, FLARESOLVERR_URL, DB_PATH, PORT, DATA_DIR,
+    SUPPORTED_CITIES, SUPPORTED_CATEGORIES
 )
 from crawler import AqarCrawler
 from export_excel import export_to_excel
@@ -23,11 +23,10 @@ from init_db import init_database
 
 app = Flask(__name__)
 
-# Global state
 crawler_instance = None
 crawler_thread = None
 is_running = False
-log_buffer = deque(maxlen=200)
+log_buffer = deque(maxlen=250)
 
 def add_log(msg):
     log_buffer.append(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
@@ -60,7 +59,7 @@ def check_readiness():
                 checks['flaresolverr'] = {
                     'status': True,
                     'latency_ms': int((time.time() - t0) * 1000),
-                    'message': f'Healthy'
+                    'message': 'Healthy'
                 }
                 break
         except Exception as e:
@@ -106,11 +105,9 @@ def get_status():
         'pages_pending': 0,
         'total_pages': 0,
         'progress_pct': 0.0,
-        'csv_exists': os.path.exists(CSV_PATH),
-        'csv_size_mb': round(os.path.getsize(CSV_PATH)/(1024**2), 2) if os.path.exists(CSV_PATH) else 0,
-        'excel_exists': os.path.exists(EXCEL_PATH),
-        'excel_size_mb': round(os.path.getsize(EXCEL_PATH)/(1024**2), 2) if os.path.exists(EXCEL_PATH) else 0,
         'db_size_mb': round(os.path.getsize(DB_PATH)/(1024**2), 2) if os.path.exists(DB_PATH) else 0,
+        'active_target': crawler_instance.target_city if crawler_instance else 'الكل',
+        'active_url': crawler_instance.target_full_url if crawler_instance else f"{BASE_SITE_URL}/عقارات"
     }
 
     if os.path.exists(DB_PATH):
@@ -136,7 +133,7 @@ def get_status():
 
 @app.route('/api/start', methods=['POST'])
 def start_scrape():
-    """Starts or resumes the crawler loop in a background thread with custom filters."""
+    """Starts a clean, fresh crawl session with the requested filters."""
     global crawler_instance, crawler_thread, is_running
 
     if is_running:
@@ -148,18 +145,18 @@ def start_scrape():
         global crawler_instance, is_running
         is_running = True
         try:
-            add_log(f"Initializing crawl with filters: {filters}")
+            add_log(f"Starting new crawl session with filters: {filters}")
             crawler_instance = AqarCrawler(filters=filters, log_callback=add_log)
             crawler_instance.run()
         except Exception as e:
-            add_log(f"Crawler encountered an error: {e}")
+            add_log(f"Crawler error: {e}")
         finally:
             is_running = False
-            add_log("Crawler execution completed or paused.")
+            add_log("Crawler finished.")
 
     crawler_thread = threading.Thread(target=run_worker, daemon=True)
     crawler_thread.start()
-    return jsonify({'success': True, 'message': 'Crawl initiated with custom filters.'})
+    return jsonify({'success': True, 'message': 'New crawl started successfully.'})
 
 @app.route('/api/stop', methods=['POST'])
 def stop_scrape():
@@ -169,24 +166,27 @@ def stop_scrape():
         return jsonify({'success': False, 'message': 'Crawler is not running.'})
 
     crawler_instance.stop()
-    add_log("Pause request issued to crawler.")
+    add_log("Pause signal sent to crawler.")
     return jsonify({'success': True, 'message': 'Pause signal sent to crawler.'})
 
 @app.route('/api/export', methods=['POST'])
 def run_export():
+    """Manually compiles the latest CSV into Excel."""
     def export_worker():
-        add_log("Starting Excel export...")
+        add_log("Starting manual Excel export...")
         try:
-            export_to_excel()
-            add_log("Excel workbook generated successfully.")
-            if os.path.exists(DB_PATH):
-                conn = sqlite3.connect(DB_PATH)
-                c = conn.cursor()
-                c.execute("UPDATE runs SET excel_file = ? WHERE id = (SELECT max(id) FROM runs)", (os.path.basename(EXCEL_PATH),))
-                conn.commit()
-                conn.close()
+            # Find latest CSV in data dir
+            csv_files = [f for f in os.listdir(DATA_DIR) if f.endswith('.csv')]
+            if not csv_files:
+                add_log("No CSV file found to export.")
+                return
+            csv_files.sort(key=lambda f: os.path.getmtime(os.path.join(DATA_DIR, f)), reverse=True)
+            target_csv = os.path.join(DATA_DIR, csv_files[0])
+            target_xlsx = os.path.splitext(target_csv)[0] + '.xlsx'
+            export_to_excel(target_csv, target_xlsx)
+            add_log(f"Excel export finished: {os.path.basename(target_xlsx)}")
         except Exception as e:
-            add_log(f"Export failed: {e}")
+            add_log(f"Export error: {e}")
 
     t = threading.Thread(target=export_worker, daemon=True)
     t.start()
@@ -205,9 +205,14 @@ def get_history():
             cur = conn.cursor()
             cur.execute("""
                 SELECT id, started_at, finished_at, status, listings_count, pages_done, total_pages, filter_desc, csv_file, excel_file
-                FROM runs ORDER BY id DESC LIMIT 20
+                FROM runs ORDER BY id DESC LIMIT 25
             """)
             for r in cur.fetchall():
+                csv_f = r[8]
+                excel_f = r[9]
+                # Check file existence
+                has_csv = bool(csv_f and os.path.exists(os.path.join(DATA_DIR, csv_f)))
+                has_excel = bool(excel_f and os.path.exists(os.path.join(DATA_DIR, excel_f)))
                 runs.append({
                     'id': r[0],
                     'started_at': r[1],
@@ -216,9 +221,9 @@ def get_history():
                     'listings_count': r[4],
                     'pages_done': r[5],
                     'total_pages': r[6],
-                    'filter_desc': r[7] or 'Default Filters',
-                    'csv_file': r[8],
-                    'excel_file': r[9] or (os.path.basename(EXCEL_PATH) if os.path.exists(EXCEL_PATH) else None)
+                    'filter_desc': r[7] or 'All Cities (Default)',
+                    'csv_file': csv_f if has_csv else None,
+                    'excel_file': excel_f if has_excel else None
                 })
             conn.close()
         except Exception:
@@ -232,5 +237,5 @@ def download_file(filename):
 
 if __name__ == '__main__':
     init_database(DB_PATH)
-    add_log(f"ScrapeDatAqar Web Server started on port {PORT}.")
+    add_log(f"ScrapeDatAqar Web Server active on port {PORT}.")
     app.run(host='0.0.0.0', port=PORT, threaded=True)

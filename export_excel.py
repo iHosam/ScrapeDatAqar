@@ -1,5 +1,6 @@
 """
 Memory-efficient export module converting streamed CSV to RTL styled Excel spreadsheet.
+Supports custom source CSV and output Excel paths.
 """
 
 import csv
@@ -10,17 +11,22 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.cell import WriteOnlyCell
 from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 
-from config import CSV_PATH, EXCEL_PATH
+from config import DATA_DIR
 
-def export_to_excel():
-    if not os.path.exists(CSV_PATH):
-        print(f"Error: CSV file {CSV_PATH} not found.")
-        return
+def export_to_excel(csv_path=None, excel_path=None):
+    if not csv_path:
+        csv_path = os.path.join(DATA_DIR, 'aqar_latest_53cols.csv')
+    if not excel_path:
+        excel_path = os.path.splitext(csv_path)[0] + '.xlsx'
 
-    print(f"Reading {CSV_PATH} and generating styled Excel workbook...")
+    if not os.path.exists(csv_path):
+        print(f"Error: CSV file {csv_path} not found.")
+        return None
+
+    print(f"Reading {csv_path} and generating styled Excel workbook...")
     t0 = time.time()
     wb = openpyxl.Workbook(write_only=True)
-    ws = wb.create_sheet(title="عقارات مدينة الرياض")
+    ws = wb.create_sheet(title="عقارات المملكة")
     ws.views.sheetView[0].rightToLeft = True
 
     header_fill = PatternFill(start_color="0A5C36", end_color="0A5C36", fill_type="solid")
@@ -41,7 +47,7 @@ def export_to_excel():
     num_indices = {0, 4, 6, 7, 8, 22, 23, 24, 41, 42, 43, 50}
     float_indices = {39, 40}
 
-    with open(CSV_PATH, 'r', encoding='utf-8-sig', errors='ignore') as f:
+    with open(csv_path, 'r', encoding='utf-8-sig', errors='ignore') as f:
         reader = csv.reader(f)
         headers = next(reader, None)
         if headers:
@@ -78,12 +84,13 @@ def export_to_excel():
                 row_cells.append(c)
             ws.append(row_cells)
             count += 1
-            if count % 15000 == 0:
+            if count % 10000 == 0:
                 print(f"  Exported {count:,} records...", flush=True)
 
-    wb.save(EXCEL_PATH)
-    file_size_mb = os.path.getsize(EXCEL_PATH) / (1024 * 1024)
-    print(f"[Export] Saved {EXCEL_PATH} ({file_size_mb:.2f} MB, {count:,} rows) in {time.time()-t0:.1f}s.")
+    wb.save(excel_path)
+    file_size_mb = os.path.getsize(excel_path) / (1024 * 1024)
+    print(f"[Export] Saved {excel_path} ({file_size_mb:.2f} MB, {count:,} rows) in {time.time()-t0:.1f}s.")
+    return excel_path
 
 if __name__ == '__main__':
     export_to_excel()
