@@ -120,12 +120,12 @@ def get_status():
             stats['listings_count'] = cur.fetchone()[0]
             conn.close()
 
-            stats['pages_done'] = page_stats.get('done', 0)
+            stats['pages_done'] = page_stats.get('done', 0) + page_stats.get('empty', 0)
             stats['pages_empty'] = page_stats.get('empty', 0)
             stats['pages_pending'] = page_stats.get('pending', 0)
-            stats['total_pages'] = stats['pages_done'] + stats['pages_empty'] + stats['pages_pending']
+            stats['total_pages'] = stats['pages_done'] + stats['pages_pending']
             if stats['total_pages'] > 0:
-                stats['progress_pct'] = round(((stats['pages_done'] + stats['pages_empty']) / stats['total_pages']) * 100, 1)
+                stats['progress_pct'] = round((stats['pages_done'] / stats['total_pages']) * 100, 1)
         except Exception:
             pass
 

@@ -2,7 +2,7 @@
 
 > **Production-Grade, Containerized Real Estate Crawler & Web Management Console for Aqar.fm (`sa.aqar.fm`)**
 
-[![Version](https://img.shields.io/badge/version-2.1-emerald.svg)](https://github.com/iHosam/ScrapeDatAqar/releases)
+[![Version](https://img.shields.io/badge/version-2.1.1-emerald.svg)](https://github.com/iHosam/ScrapeDatAqar/releases)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -10,9 +10,9 @@ ScrapeDatAqar is a full-featured real estate extraction platform with a **built-
 
 ---
 
-## 🎛️ Dynamic Filter System (v2.1)
+## 🎛️ Dynamic Filter System (v2.1.1)
 
-The web console introduces an upgraded filtering and run execution engine:
+The web console features an upgraded filtering and parsing engine:
 
 | Filter | Control Type | Default Value | Optional? | Description |
 |---|---|---|---|---|
@@ -20,10 +20,14 @@ The web console introduces an upgraded filtering and run execution engine:
 | **القسم / الفئة (Category)** | Interactive Checkbox Pill Grid | `الكل (جميع الأقسام)` | ✅ Yes | Persistent checkbox toggle pills that never deselect when clicking elsewhere. |
 | **السعر (Price Range)** | Dual Upper & Lower Bound Sliders | `0 - بلا حد أقصى` | ✅ Yes | Filter listings by minimum and maximum price in SAR. |
 | **المساحة (Area Range)** | Dual Upper & Lower Bound Sliders | `0 - بلا حد أقصى` | ✅ Yes | Filter listings by minimum and maximum area in m². |
-| **الحي (Neighborhood)** | Multi-District Text Input | `الكل (جميع الأحياء)` | ✅ Yes | Filter listings by one or more target districts. |
+| **الحي (Neighborhood)** | Multi-District Text Input + Targeted Routing | `الكل (جميع الأحياء)` | ✅ Yes | Filter listings by one or more target districts (with direct URL routing and top-level schema parsing). |
 | **غرف النوم (Bedrooms)** | Number Field Dropdown | `الكل (أي عدد)` | ✅ Yes | 1, 2, 3, 4, 5, or 6+ bedrooms. |
 
-> **Run Execution & Isolation:** Each crawl session runs cleanly in its own isolated context, dynamically generating distinct timestamped CSV and XLSX files linked directly in the execution history table.
+> **v2.1.1 Fixes:**
+> - Direct endpoint routing for targeted single-district searches (`/{category}/{city}/{district}`).
+> - Top-level district/city property parsing matching Aqar's Next.js schema (`item['district']`, `item['city']`).
+> - Multi-stage unescaping for Next.js flight streaming JSON preventing decode failures on ad descriptions with embedded quotes.
+> - Accurate progress calculation tracking completed and empty pages.
 
 ---
 

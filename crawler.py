@@ -93,7 +93,21 @@ class AqarCrawler:
         self.target_categories = cats
         single_cat = len(cats) == 1 and cats[0] in CATEGORY_SLUG_MAP
 
-        # 3. Construct Base Search URL
+        # 3. Districts filter
+        dists = self.filters.get('districts') or ['الكل']
+        if isinstance(dists, str):
+            dists = [d.strip() for d in dists.split(',') if d.strip()]
+        self.target_districts = dists
+        has_single_district = len(self.target_districts) == 1 and self.target_districts[0] not in ('الكل', '', 'all')
+        dist_slug = ''
+        if has_single_district:
+            d_raw = self.target_districts[0].strip().replace(' ', '-')
+            if not d_raw.startswith('حي-'):
+                dist_slug = f"حي-{d_raw}"
+            else:
+                dist_slug = d_raw
+
+        # 4. Construct Base Search URL
         if self.is_all_cities:
             if single_cat:
                 cat_slug = CATEGORY_SLUG_MAP[cats[0]]
@@ -101,24 +115,18 @@ class AqarCrawler:
             else:
                 self.base_search_url = f"{BASE_SITE_URL}/عقارات"
         else:
-            if single_cat:
-                cat_slug = CATEGORY_SLUG_MAP[cats[0]]
-                self.base_search_url = f"{BASE_SITE_URL}/{urllib.parse.quote(cat_slug)}/{urllib.parse.quote(self.target_city)}"
+            cat_part = CATEGORY_SLUG_MAP[cats[0]] if single_cat else 'عقارات'
+            if dist_slug:
+                self.base_search_url = f"{BASE_SITE_URL}/{urllib.parse.quote(cat_part)}/{urllib.parse.quote(self.target_city)}/{urllib.parse.quote(dist_slug)}"
             else:
-                self.base_search_url = f"{BASE_SITE_URL}/عقارات/{urllib.parse.quote(self.target_city)}"
+                self.base_search_url = f"{BASE_SITE_URL}/{urllib.parse.quote(cat_part)}/{urllib.parse.quote(self.target_city)}"
 
-        # 4. Numeric & Range Filters
+        # 5. Numeric & Range Filters
         self.min_price = float(self.filters.get('min_price') or 0)
         self.max_price = float(self.filters.get('max_price') or 0)
         self.min_area = float(self.filters.get('min_area') or 0)
         self.max_area = float(self.filters.get('max_area') or 0)
         self.beds = str(self.filters.get('beds') or '').strip()
-
-        # 5. Districts filter
-        dists = self.filters.get('districts') or ['الكل']
-        if isinstance(dists, str):
-            dists = [d.strip() for d in dists.split(',') if d.strip()]
-        self.target_districts = dists
 
         # Build query parameters
         params = []
@@ -214,20 +222,33 @@ class AqarCrawler:
             return []
         start = m.start(1)
         raw = html[start:]
-        cleaned = raw.replace('\\"', '"')
+
+        # Two-stage Next.js flight streaming JSON unescape:
+        # Protects double-escaped backslashes so embedded quotes inside ad descriptions
+        # (e.g. \\"مجدد\\") do not corrupt outer JSON string boundaries into unescaped quotes.
+        MARKER = '@@ESCAPED_SLASH@@'
+        cleaned = raw.replace('\\\\', MARKER).replace('\\"', '"').replace(MARKER, '\\')
         try:
             items, _ = json.JSONDecoder().raw_decode(cleaned)
             return items if isinstance(items, list) else []
         except Exception:
-            return []
+            try:
+                # Fallback for simpler single-escaped formats
+                fallback_cleaned = raw.replace('\\"', '"')
+                items, _ = json.JSONDecoder().raw_decode(fallback_cleaned)
+                return items if isinstance(items, list) else []
+            except Exception:
+                return []
 
     def matches_filters(self, item):
         """Dual-layer client side validation against active filters."""
+        loc = item.get('location') or {}
+
         # 1. City check (if specific city targeted)
         if not self.is_all_cities:
-            loc = item.get('location') or {}
-            item_city = loc.get('city', '')
-            if self.target_city not in item_city and item_city not in self.target_city:
+            item_city = (item.get('city') or loc.get('city') or '').strip()
+            item_addr = item.get('address') or ''
+            if (self.target_city not in item_city and item_city not in self.target_city) and (self.target_city not in item_addr):
                 return False
 
         # 2. Price check
@@ -257,11 +278,22 @@ class AqarCrawler:
             if not any(target in cat_name for target in self.target_categories):
                 return False
 
-        # 6. District check
+        # 6. District check (robust matching against district property, address, and title)
         if self.target_districts and not any('الكل' in d for d in self.target_districts):
-            loc = item.get('location') or {}
-            district = loc.get('district', '')
-            if not any(d in district for d in self.target_districts):
+            item_dist = (item.get('district') or loc.get('district') or '').strip()
+            item_addr = (item.get('address') or '').strip()
+            item_title = (item.get('title') or '').strip()
+            full_loc_text = f"{item_dist} {item_addr} {item_title}"
+
+            matched = False
+            for d in self.target_districts:
+                d_clean = d.replace('حي ', '').replace('حي-', '').strip()
+                if not d_clean:
+                    continue
+                if d in full_loc_text or d_clean in full_loc_text:
+                    matched = True
+                    break
+            if not matched:
                 return False
 
         return True
@@ -270,7 +302,8 @@ class AqarCrawler:
         loc = item.get('location') or {}
         user = item.get('user') or {}
         aid = item.get('id')
-        item_city = loc.get('city') or self.target_city
+        item_city = item.get('city') or loc.get('city') or self.target_city
+        item_district = item.get('district') or loc.get('district') or ''
         imgs = item.get('imgs') or []
         img_urls = [f"https://images.aqar.fm/webp/750x0/props/{i}" if not i.startswith('http') else i for i in imgs]
         videos = item.get('videos') or []
@@ -286,7 +319,7 @@ class AqarCrawler:
         return [
             aid, f"عقارات {item_city}", item.get('categoryName', ''), item.get('title', ''), item.get('price', ''),
             item.get('rent_period_text', ''), item.get('rega_total_price', ''), item.get('area', ''), item.get('deed_area', ''),
-            item_city, loc.get('district', ''), item.get('address', ''), item.get('advertisement_number', ''),
+            item_city, item_district, item.get('address', ''), item.get('advertisement_number', ''),
             item.get('deed_number', ''), item.get('plan_number', ''), item.get('parcel_number', ''),
             f"{item.get('plan_number', '')} / {item.get('parcel_number', '')}".strip(" /"),
             "نعم" if item.get('licensed') else "لا", user.get('name', ''), user.get('iam_fal_license_number', ''),
@@ -393,7 +426,7 @@ class AqarCrawler:
 
             c.execute("SELECT COUNT(*) FROM listings")
             total_listings = c.fetchone()[0]
-            c.execute("SELECT COUNT(*) FROM pages WHERE status='done'")
+            c.execute("SELECT COUNT(*) FROM pages WHERE status IN ('done', 'empty')")
             pages_done = c.fetchone()[0]
 
             if self.current_run_id:
