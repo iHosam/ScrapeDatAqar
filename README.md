@@ -1,10 +1,24 @@
 # ScrapeDatAqar 🏙️📊
 
-> **High-Throughput, Zero-Ban Real Estate Crawler & Data Pipeline for Aqar.fm (`sa.aqar.fm`)**
+> **Production-Grade, Containerized Real Estate Crawler & Web Management Console for Aqar.fm (`sa.aqar.fm`)**
 
-ScrapeDatAqar is a production-grade, highly resilient data extraction pipeline engineered to crawl tens of thousands of active property listings across Riyadh City from `sa.aqar.fm`. 
+[![Version](https://img.shields.io/badge/version-2.0.1-emerald.svg)](https://github.com/iHosam/ScrapeDatAqar/releases)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-It bypasses heavy browser DOM rendering by directly decoding Next.js server push streams, manages edge security clearances headlessly via FlareSolverr, and streams clean records into SQLite (WAL mode), CSV, and a styled Arabic Right-to-Left (RTL) Excel workbook.
+ScrapeDatAqar is a full-featured real estate extraction platform with a **built-in web dashboard (Port 8099)**. It manages edge security clearances via FlareSolverr, deserializes Next.js server push streams at ~56+ ads/second, tracks state across SQLite WAL transactions, and outputs styled Arabic Right-to-Left (RTL) Excel workbooks and UTF-8 CSV datasets.
+
+---
+
+## 🖥️ Web Interface (Port 8099)
+
+The web console provides complete visibility and control over the pipeline:
+
+- **System Readiness Panel:** Real-time health monitors for FlareSolverr latency, SQLite WAL tables, and available disk storage.
+- **Interactive Controls:** One-click **Start Scrape** and **Pause** actions with live process status.
+- **Live Metrics Dashboard:** Completion progress bar (%), active listings counter, pending/empty page breakdown, and live file sizes.
+- **Real-Time Terminal Output:** Auto-scrolling terminal streaming stdout/stderr directly from the crawler.
+- **Crawl History & Artifact Downloads:** Download generated `.xlsx` (Arabic RTL), `.csv` (53 columns), and raw `.db` files directly from your browser.
 
 ---
 
@@ -12,26 +26,29 @@ It bypasses heavy browser DOM rendering by directly decoding Next.js server push
 
 ```mermaid
 flowchart TD
-    subgraph Host ["Host System (Bare-Metal / VM)"]
-        FS["FlareSolverr Service (Docker Port 8191)"]
-        Crawler["Crawler Daemon (Python ThreadPool)"]
-        WAL[("SQLite Master (WAL Mode)")]
-        CSVFile["Streaming CSV (UTF-8 BOM)"]
-        Excel["Excel Generator (OpenPyXL RTL)"]
+    subgraph Client ["Client Browser"]
+        UI["Web Dashboard (Port 8099)"]
     end
 
-    subgraph AqarTarget ["Aqar.fm CDN Edge"]
-        TargetAPI["Next.js Server Component Stream"]
+    subgraph DockerEnv ["Docker Container Architecture"]
+        WebServer["Flask Web & API Server (app.py)"]
+        CrawlerDaemon["AqarCrawler Worker Pool"]
+        FSContainer["FlareSolverr Service (Port 8191)"]
+        VolData[("Persistent Data Volume: ./data")]
     end
 
-    Crawler -->|"1. Request Clearance"| FS
-    FS -->|"2. Return Clearance & UA"| Crawler
-    Crawler -->|"3. Jittered Requests"| TargetAPI
-    TargetAPI -->|"4. Raw Next.js Stream"| Crawler
-    Crawler -->|"5. Deserialize JSON & Normalize"| Crawler
-    Crawler -->|"6. Write Transaction"| WAL
-    Crawler -->|"7. Stream Row"| CSVFile
-    CSVFile -->|"8. Generate on Completion"| Excel
+    subgraph AqarCDN ["Aqar.fm CDN Edge"]
+        NextStream["Next.js Server Component Stream"]
+    end
+
+    UI <-->|"REST API / Live Polling"| WebServer
+    WebServer <-->|"Control Thread"| CrawlerDaemon
+    CrawlerDaemon -->|"1. Request Clearance Token"| FSContainer
+    FSContainer -->|"2. Return cf_clearance & UA"| CrawlerDaemon
+    CrawlerDaemon -->|"3. Jittered Multi-Worker Fetch"| NextStream
+    NextStream -->|"4. Stream Listings JSON"| CrawlerDaemon
+    CrawlerDaemon -->|"5. ACID Writes"| VolData
+    WebServer -->|"6. Direct File Downloads"| UI
 ```
 
 ---
@@ -40,32 +57,38 @@ flowchart TD
 
 ```mermaid
 graph TD
-    A["Host Bootstrap (setup_environment.sh)"] --> B{"Requirements Present?"}
-    B -- No --> C["Install Missing Tools & Docker"]
-    B -- Yes --> D["Start FlareSolverr Container"]
-    C --> D
-    D --> E["Pre-Flight Health Verification"]
-    E --> F["Queue Riyadh City Pages (1..N)"]
-    F --> G["Multi-Worker Crawler Loop"]
+    A["docker compose up -d"] --> B["Launch FlareSolverr & Web Console"]
+    B --> C["Open Web UI at http://localhost:8099"]
+    C --> D{"Readiness Check"}
+    D -- FlareSolverr Offline --> E["Wait / Auto-Reconnect"]
+    D -- Ready --> F["Click 'Start Scrape'"]
+    F --> G["Multi-Threaded Worker Queue"]
     G --> H{"Page Scraped?"}
-    H -- Success --> I["Append 53-Col Record to SQLite & CSV"]
-    H -- Edge Block / 403 --> J["Refresh Clearance & Retry"]
+    H -- Success --> I["Write to SQLite WAL & CSV"]
+    H -- Edge 403 / 503 --> J["Refresh Clearance & Retry"]
     J --> G
-    I --> K{"Pending Pages Left?"}
+    I --> K{"Pending Pages?"}
     K -- Yes --> G
-    K -- No --> L["Trigger export_excel.py"]
-    L --> M["Final Deliverable: .xlsx (RTL Styled)"]
+    K -- No --> L["Trigger Excel RTL Exporter"]
+    L --> M["Direct Download: XLSX / CSV / DB"]
 ```
 
 ---
 
-## 🎯 Key Capabilities
+## 🛠️ Quick Start (Docker Deployment)
 
-- **Next.js Stream Deserialization:** Directly parses embedded server-push JSON arrays (`\"listings\":[...]`), extracting 20 rich listings per page in milliseconds without headless browser DOM overhead.
-- **Strict Idempotency:** The setup scripts and crawler loop check for existing tools, active containers, and completed database pages. If interrupted, the crawler resumes precisely where it left off.
-- **Zero Double-Encoding Bug:** Handles Arabic path segments safely with `urllib.parse.unquote()` before single-quoting, avoiding HTTP 404 drops on non-ASCII characters.
-- **Memory-Efficient XLSX Generation:** Uses `openpyxl.Workbook(write_only=True)` to stream 70,000+ rows into styled Excel format without out-of-memory (OOM) crashes.
-- **53 Granular Columns:** Covers ad licenses, FAL broker numbers, deed numbers, parcel plans, specs (beds, livings, baths), coordinates, descriptions, photo arrays, and search page links.
+### 1. Clone & Launch Containers
+```bash
+git clone https://github.com/iHosam/ScrapeDatAqar.git
+cd ScrapeDatAqar
+docker compose up -d --build
+```
+
+### 2. Access Web Console
+Open your browser and navigate to:
+```text
+http://<host-ip>:8099
+```
 
 ---
 
@@ -92,74 +115,6 @@ graph TD
 | 47 | `رابط صفحة البحث` | **Search page URL where the ad appeared** |
 | 48–49 | `روابط الإعلان` | Direct Full Listing URL & Short Ad URL |
 | 50–53 | `الوسائط والوصف` | Full Description Text, Photo Count, Photo URLs, Video URL |
-
----
-
-## 🗄️ Database Architecture (SQLite in WAL Mode)
-
-Unlike client-server relational databases (such as PostgreSQL or MySQL) which require independent background daemons and socket authentication, **SQLite is an embedded, serverless engine** that operates directly against a single file on the filesystem.
-
-In this pipeline, SQLite is initialized via `init_db.py` with **Write-Ahead Logging (WAL)** enabled:
-```sql
-PRAGMA journal_mode = WAL;
-PRAGMA synchronous = NORMAL;
-```
-
-### Why WAL Mode?
-- **Concurrent Readers & Writers:** Standard SQLite locks the entire database file during writes. WAL mode allows concurrent threads to read pages while a worker writes newly scraped listings, eliminating `database is locked` exceptions.
-- **Fast Queue Transactions:** The `pages` queue tracks status (`pending` ➔ `done` / `empty`), allowing instant crash recovery and resumption.
-
-### Standalone Database Setup
-To manually initialize or inspect the database schema at any time:
-```bash
-python3 init_db.py
-```
-
----
-
-## 🛠️ Getting Started
-
-### 1. Automated Setup (Bare-Metal or VM)
-Run the idempotent system preparation script:
-```bash
-git clone https://github.com/iHosam/ScrapeDatAqar.git
-cd ScrapeDatAqar
-chmod +x setup_environment.sh run_pipeline.sh
-./setup_environment.sh
-```
-
-### 2. Run the Full Extraction Pipeline
-```bash
-./run_pipeline.sh
-```
-Or run the crawler as a background daemon:
-```bash
-nohup python3 crawler.py </dev/null > crawler.log 2>&1 &
-```
-
-### 3. Monitor Live Ingestion
-Check crawl metrics, speed, and percentage at any moment:
-```bash
-python3 monitor.py
-```
-Output:
-```text
-=============================================
-  Live Crawler Progress: 67.0%
-=============================================
-  Total Listings Scraped : 43,044
-  Pages Done (Active)    : 2,457
-  Pages Completed (Empty): 423
-  Pages Pending          : 1,421
-  Total Pages Queued     : 4,301
-=============================================
-```
-
-### 4. Export Styled Excel
-Once the crawler finishes, run the exporter:
-```bash
-python3 export_excel.py
-```
 
 ---
 

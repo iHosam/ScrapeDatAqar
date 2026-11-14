@@ -23,18 +23,32 @@ from config import (
 from init_db import init_database
 
 class AqarCrawler:
-    def __init__(self):
+    def __init__(self, log_callback=None):
         self.lock = threading.Lock()
         self.running = True
         self.user_agent = None
         self.cookie_header = None
-        signal.signal(signal.SIGINT, self._handle_exit)
-        signal.signal(signal.SIGTERM, self._handle_exit)
+        self.log_callback = log_callback or print
+        self.current_run_id = None
+        
+        try:
+            signal.signal(signal.SIGINT, self._handle_exit)
+            signal.signal(signal.SIGTERM, self._handle_exit)
+        except Exception:
+            pass  # When running in subthread
+
         self._init_db()
         self._init_csv()
 
+    def _log(self, msg):
+        self.log_callback(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+
     def _handle_exit(self, signum, frame):
-        print(f"\n[Signal] Gracefully terminating crawler loop...", flush=True)
+        self._log(f"Received exit signal {signum}. Stopping crawler loop...")
+        self.running = False
+
+    def stop(self):
+        self._log("Stop requested. Gracefully halting crawler...")
         self.running = False
 
     def _init_db(self):
@@ -48,26 +62,38 @@ class AqarCrawler:
 
     def refresh_clearance(self):
         with self.lock:
-            print("[FlareSolverr] Requesting clearance token...", flush=True)
+            self._log("[FlareSolverr] Requesting clearance token...")
             payload = json.dumps({
                 'cmd': 'request.get',
                 'url': BASE_CITY_URL,
                 'maxTimeout': FLARE_TIMEOUT
             }).encode('utf-8')
-            req = urllib.request.Request(FLARESOLVERR_URL, data=payload, headers={'Content-Type': 'application/json'})
-            for att in range(3):
-                try:
-                    with urllib.request.urlopen(req, timeout=50) as resp:
-                        data = json.loads(resp.read().decode('utf-8'))
-                        sol = data.get('solution', {})
-                        self.user_agent = sol.get('userAgent')
-                        cookies = sol.get('cookies', [])
-                        self.cookie_header = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
-                        print(f"[FlareSolverr] Clearance OK! Cookies: {len(cookies)}, UA: {self.user_agent[:40]}...", flush=True)
-                        return
-                except Exception as e:
-                    print(f"[FlareSolverr] Attempt {att+1} failed: {e}", flush=True)
-                    time.sleep(2)
+
+            endpoints = [FLARESOLVERR_URL, 'http://172.17.0.1:8191/v1', 'http://127.0.0.1:8191/v1', 'http://flaresolverr:8191/v1']
+            # Deduplicate endpoints while preserving order
+            seen = set()
+            valid_endpoints = []
+            for ep in endpoints:
+                if ep not in seen:
+                    seen.add(ep)
+                    valid_endpoints.append(ep)
+
+            for target_url in valid_endpoints:
+                req = urllib.request.Request(target_url, data=payload, headers={'Content-Type': 'application/json'})
+                for att in range(2):
+                    try:
+                        with urllib.request.urlopen(req, timeout=50) as resp:
+                            data = json.loads(resp.read().decode('utf-8'))
+                            sol = data.get('solution', {})
+                            self.user_agent = sol.get('userAgent')
+                            cookies = sol.get('cookies', [])
+                            self.cookie_header = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
+                            self._log(f"[FlareSolverr] Clearance OK via {target_url}! Cookies: {len(cookies)}, UA: {self.user_agent[:40]}...")
+                            return True
+                    except Exception as e:
+                        self._log(f"[FlareSolverr] Attempt {att+1} failed on {target_url}: {e}")
+                        time.sleep(1)
+            return False
 
     def fetch_url(self, url):
         headers = {
@@ -150,14 +176,14 @@ class AqarCrawler:
         ]
 
     def run(self):
-        print("Checking session tokens...", flush=True)
+        self._log("Starting crawler session...")
         self.refresh_clearance()
 
         p1 = self.fetch_url(BASE_CITY_URL)
         m_count = re.search(r'count\\*":\s*(\d+)', p1) if p1 else None
         total_ads = int(m_count.group(1)) if m_count else 86000
         total_pages = (total_ads // 20) + 1
-        print(f"[Total Found] {total_ads:,} active ads across ~{total_pages:,} pages.", flush=True)
+        self._log(f"[Total Found] {total_ads:,} active ads across ~{total_pages:,} pages.")
 
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
@@ -165,15 +191,24 @@ class AqarCrawler:
         existing_pages = cur.fetchone()[0]
 
         if existing_pages < total_pages:
-            print(f"[Queue] Initializing {total_pages - existing_pages} pending pages...", flush=True)
+            self._log(f"[Queue] Initializing {total_pages - existing_pages} pages into queue...")
             pages_data = [(p, 'pending', None) for p in range(1, total_pages + 1)]
             cur.executemany("INSERT OR IGNORE INTO pages (page_num, status, scraped_at) VALUES (?, ?, ?)", pages_data)
             conn.commit()
         else:
             cur.execute("SELECT COUNT(*) FROM pages WHERE status='done'")
             done_cnt = cur.fetchone()[0]
-            print(f"[Queue] Resuming crawl: {done_cnt:,}/{existing_pages:,} already scraped.", flush=True)
+            self._log(f"[Queue] Resuming crawl: {done_cnt:,}/{existing_pages:,} already scraped.")
+
+        # Record run start
+        cur.execute("INSERT INTO runs (started_at, status, total_pages, csv_file) VALUES (?, 'RUNNING', ?, ?)",
+                    (datetime.now().isoformat(), total_pages, os.path.basename(CSV_PATH)))
+        self.current_run_id = cur.lastrowid
+        conn.commit()
         conn.close()
+
+        scraped_this_session = 0
+        t_start = time.time()
 
         while self.running:
             conn = sqlite3.connect(DB_PATH)
@@ -183,7 +218,7 @@ class AqarCrawler:
             conn.close()
 
             if not batch:
-                print("[Crawler] Finished! All pages processed.", flush=True)
+                self._log("[Crawler] Finished! All pages processed.")
                 break
 
             def scrape_worker(p_num):
@@ -211,14 +246,41 @@ class AqarCrawler:
                             c.execute("INSERT OR REPLACE INTO listings (id, page_num, page_url, ad_url, data_json, scraped_at) VALUES (?, ?, ?, ?, ?, ?)",
                                       (aid, p_num, row[46], row[47], json.dumps(it, ensure_ascii=False), datetime.now().isoformat()))
                     c.execute("UPDATE pages SET status = 'done', scraped_at = ? WHERE page_num = ?", (datetime.now().isoformat(), p_num))
+                    scraped_this_session += len(items)
                 else:
                     c.execute("UPDATE pages SET status = 'empty', scraped_at = ? WHERE page_num = ?", (datetime.now().isoformat(), p_num))
             conn.commit()
+
+            # Update runs record
+            c.execute("SELECT COUNT(*) FROM listings")
+            total_listings = c.fetchone()[0]
+            c.execute("SELECT COUNT(*) FROM pages WHERE status='done'")
+            pages_done = c.fetchone()[0]
+
+            if self.current_run_id:
+                c.execute("UPDATE runs SET listings_count = ?, pages_done = ? WHERE id = ?",
+                          (total_listings, pages_done, self.current_run_id))
+                conn.commit()
             conn.close()
 
             if csv_rows:
                 with open(CSV_PATH, 'a', newline='', encoding='utf-8-sig') as f:
                     csv.writer(f).writerows(csv_rows)
+
+            el = time.time() - t_start
+            spd = scraped_this_session / el if el > 0 else 0
+            self._log(f"Progress: {total_listings:,} ads ({pages_done:,} pages done) | {spd:.1f} ads/sec")
+
+        # Finalize run status
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        final_status = 'COMPLETED' if self.running else 'PAUSED'
+        if self.current_run_id:
+            c.execute("UPDATE runs SET finished_at = ?, status = ? WHERE id = ?",
+                      (datetime.now().isoformat(), final_status, self.current_run_id))
+            conn.commit()
+        conn.close()
+        self._log(f"Crawler loop ended with status: {final_status}")
 
 if __name__ == '__main__':
     AqarCrawler().run()

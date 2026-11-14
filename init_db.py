@@ -26,12 +26,23 @@ CREATE TABLE IF NOT EXISTS listings (
     scraped_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at TEXT,
+    finished_at TEXT,
+    status TEXT, -- 'RUNNING', 'COMPLETED', 'PAUSED', 'FAILED'
+    listings_count INTEGER DEFAULT 0,
+    pages_done INTEGER DEFAULT 0,
+    total_pages INTEGER DEFAULT 0,
+    csv_file TEXT,
+    excel_file TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_pages_status ON pages(status);
 CREATE INDEX IF NOT EXISTS idx_listings_page ON listings(page_num);
 """
 
 def init_database(db_path=DB_PATH):
-    print(f"[Database] Initializing schema at '{db_path}'...")
     db_dir = os.path.dirname(db_path)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
@@ -41,15 +52,15 @@ def init_database(db_path=DB_PATH):
     cur.executescript(SCHEMA_SQL)
     conn.commit()
 
-    # Verify tables
     cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = [row[0] for row in cur.fetchall()]
-    print(f"[Database] OK! Active tables: {', '.join(tables)}")
 
     cur.execute("PRAGMA journal_mode;")
     mode = cur.fetchone()[0]
-    print(f"[Database] WAL mode enabled: {mode.upper()}")
     conn.close()
+    return tables, mode
 
 if __name__ == '__main__':
-    init_database()
+    tables, mode = init_database()
+    print(f"[Database] Active tables: {', '.join(tables)}")
+    print(f"[Database] WAL mode: {mode.upper()}")

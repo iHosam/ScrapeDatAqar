@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScrapeDatAqar - Dashboard & Controller</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .log-terminal { font-family: 'Consolas', 'Courier New', monospace; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-700/60 gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold text-xl shadow-lg shadow-emerald-500/20">
+                    <i class="fa-solid fa-building-wheat"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                        ScrapeDatAqar <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">v2.0.1</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">High-Throughput Aqar.fm Extractor & Management Console</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="pulse-badge" class="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    Port {{ port }} Active
+                </span>
+                <button onclick="refreshData()" class="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- System Readiness Bar -->
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- FlareSolverr Status -->
+            <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+                <div>
+                    <div class="text-xs text-slate-400 font-medium">FlareSolverr Service</div>
+                    <div id="fs-status-text" class="text-sm font-semibold text-slate-300 mt-0.5">Checking...</div>
+                </div>
+                <div id="fs-icon" class="h-9 w-9 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+            </div>
+
+            <!-- Database Status -->
+            <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+                <div>
+                    <div class="text-xs text-slate-400 font-medium">SQLite WAL Database</div>
+                    <div id="db-status-text" class="text-sm font-semibold text-slate-300 mt-0.5">Checking...</div>
+                </div>
+                <div id="db-icon" class="h-9 w-9 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+            </div>
+
+            <!-- Disk Space -->
+            <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+                <div>
+                    <div class="text-xs text-slate-400 font-medium">Storage Space</div>
+                    <div id="disk-status-text" class="text-sm font-semibold text-slate-300 mt-0.5">Checking...</div>
+                </div>
+                <div class="h-9 w-9 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400">
+                    <i class="fa-solid fa-hard-drive"></i>
+                </div>
+            </div>
+
+            <!-- System Readiness Overall -->
+            <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+                <div>
+                    <div class="text-xs text-slate-400 font-medium">System Readiness</div>
+                    <div id="overall-status-text" class="text-sm font-bold text-slate-300 mt-0.5">Checking...</div>
+                </div>
+                <div id="overall-icon" class="h-9 w-9 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- Control Action Panel -->
+        <section class="glass-panel p-6 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <button id="btn-start" onclick="startCrawler()" class="px-6 py-2.5 rounded-xl font-semibold text-sm bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition disabled:opacity-50 disabled:pointer-events-none">
+                    <i class="fa-solid fa-play"></i> Start Scrape
+                </button>
+                <button id="btn-stop" onclick="stopCrawler()" disabled class="px-6 py-2.5 rounded-xl font-semibold text-sm bg-amber-600 hover:bg-amber-500 active:scale-95 text-white flex items-center gap-2 shadow-lg shadow-amber-600/30 transition disabled:opacity-50 disabled:pointer-events-none">
+                    <i class="fa-solid fa-pause"></i> Pause
+                </button>
+                <button id="btn-export" onclick="exportExcel()" class="px-5 py-2.5 rounded-xl font-semibold text-sm bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-file-excel text-emerald-400"></i> Export Excel
+                </button>
+            </div>
+
+            <div class="flex items-center gap-4 text-xs text-slate-400">
+                <div id="live-crawler-badge" class="px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 flex items-center gap-2">
+                    <span class="h-2 w-2 rounded-full bg-slate-500"></span> IDLE
+                </div>
+            </div>
+        </section>
+
+        <!-- Metrics Dashboard -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Progress Box -->
+            <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between">
+                <div>
+                    <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">Crawl Completion</span>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="metric-pct" class="text-4xl font-extrabold text-white">0.0%</span>
+                        <span id="metric-pages-done" class="text-xs text-slate-400">0 / 0 pages</span>
+                    </div>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden mt-6 border border-slate-700">
+                    <div id="metric-progress-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Total Scraped Ads -->
+            <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between">
+                <div>
+                    <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">Active Listings Captured</span>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="metric-listings" class="text-4xl font-extrabold text-emerald-400">0</span>
+                        <span class="text-xs text-slate-400">real estate ads</span>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between text-xs text-slate-400 pt-4 border-t border-slate-700/50 mt-4">
+                    <span>Pending Pages: <b id="metric-pending" class="text-white">0</b></span>
+                    <span>Empty Pages: <b id="metric-empty" class="text-white">0</b></span>
+                </div>
+            </div>
+
+            <!-- Documents & Storage Status -->
+            <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between">
+                <div>
+                    <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">Artifact Documents</span>
+                    <div class="mt-3 space-y-2 text-xs">
+                        <div class="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
+                            <span class="flex items-center gap-2"><i class="fa-solid fa-file-excel text-emerald-400"></i> Excel (.xlsx)</span>
+                            <span id="file-excel-size" class="font-mono text-slate-300">0 MB</span>
+                        </div>
+                        <div class="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
+                            <span class="flex items-center gap-2"><i class="fa-solid fa-file-csv text-blue-400"></i> CSV (53 cols)</span>
+                            <span id="file-csv-size" class="font-mono text-slate-300">0 MB</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-xs text-slate-400 pt-2">
+                    SQLite Database: <span id="file-db-size" class="font-mono text-white">0 MB</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Log Terminal Output -->
+        <section class="glass-panel p-5 rounded-2xl">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-700/60 text-xs">
+                <span class="font-semibold text-slate-300 flex items-center gap-2">
+                    <i class="fa-solid fa-terminal text-slate-400"></i> Crawler Live Terminal
+                </span>
+                <span class="text-slate-500 font-mono">STDOUT / STDERR</span>
+            </div>
+            <div id="terminal-window" class="log-terminal mt-3 bg-slate-950 p-4 rounded-xl h-48 overflow-y-auto text-xs text-slate-300 space-y-1">
+                <div class="text-slate-500">Connecting to ScrapeDatAqar background daemon...</div>
+            </div>
+        </section>
+
+        <!-- Crawl History Log & Downloads -->
+        <section class="glass-panel p-6 rounded-2xl">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-700/60">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-slate-400"></i> Crawl Runs & Deliverables
+                </h3>
+            </div>
+            <div class="overflow-x-auto mt-4">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="text-slate-400 uppercase bg-slate-800/50 font-semibold border-b border-slate-700">
+                        <tr>
+                            <th class="p-3">Run ID</th>
+                            <th class="p-3">Started</th>
+                            <th class="p-3">Finished</th>
+                            <th class="p-3">Status</th>
+                            <th class="p-3">Listings</th>
+                            <th class="p-3">Pages</th>
+                            <th class="p-3 text-right">Downloads</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody" class="divide-y divide-slate-800">
+                        <tr><td colspan="7" class="p-4 text-center text-slate-500">No crawl runs recorded yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Script Operations -->
+    <script>
+        async function fetchReadiness() {
+            try {
+                const res = await fetch('/api/readiness');
+                const data = await res.json();
+
+                // FlareSolverr Card
+                const fsText = document.getElementById('fs-status-text');
+                const fsIcon = document.getElementById('fs-icon');
+                if (data.flaresolverr.status) {
+                    fsText.innerHTML = `<span class="text-emerald-400">Online</span> (${data.flaresolverr.latency_ms}ms)`;
+                    fsIcon.className = "h-9 w-9 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center";
+                } else {
+                    fsText.innerHTML = `<span class="text-rose-400">Offline</span>`;
+                    fsIcon.className = "h-9 w-9 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center";
+                }
+
+                // Database Card
+                const dbText = document.getElementById('db-status-text');
+                const dbIcon = document.getElementById('db-icon');
+                if (data.database.status) {
+                    dbText.innerHTML = `<span class="text-emerald-400">${data.database.message}</span>`;
+                    dbIcon.className = "h-9 w-9 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center";
+                } else {
+                    dbText.innerHTML = `<span class="text-rose-400">${data.database.message}</span>`;
+                    dbIcon.className = "h-9 w-9 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center";
+                }
+
+                // Disk Space Card
+                document.getElementById('disk-status-text').innerText = `${data.disk.free_gb} GB Free`;
+
+                // Overall Readiness
+                const overallText = document.getElementById('overall-status-text');
+                const overallIcon = document.getElementById('overall-icon');
+                if (data.ready) {
+                    overallText.innerHTML = `<span class="text-emerald-400">Ready to Scrape</span>`;
+                    overallIcon.className = "h-9 w-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center";
+                } else {
+                    overallText.innerHTML = `<span class="text-amber-400">Action Required</span>`;
+                    overallIcon.className = "h-9 w-9 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center";
+                }
+            } catch (e) {
+                console.error("Readiness check error:", e);
+            }
+        }
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const s = await res.json();
+
+                // Metrics
+                document.getElementById('metric-pct').innerText = `${s.progress_pct}%`;
+                document.getElementById('metric-progress-bar').style.width = `${s.progress_pct}%`;
+                document.getElementById('metric-pages-done').innerText = `${s.pages_done + s.pages_empty} / ${s.total_pages} pages`;
+                document.getElementById('metric-listings').innerText = s.listings_count.toLocaleString();
+                document.getElementById('metric-pending').innerText = s.pages_pending.toLocaleString();
+                document.getElementById('metric-empty').innerText = s.pages_empty.toLocaleString();
+
+                // Files
+                document.getElementById('file-excel-size').innerText = s.excel_exists ? `${s.excel_size_mb} MB` : 'Not built';
+                document.getElementById('file-csv-size').innerText = s.csv_exists ? `${s.csv_size_mb} MB` : 'Empty';
+                document.getElementById('file-db-size').innerText = `${s.db_size_mb} MB`;
+
+                // Buttons and State
+                const btnStart = document.getElementById('btn-start');
+                const btnStop = document.getElementById('btn-stop');
+                const crawlerBadge = document.getElementById('live-crawler-badge');
+
+                if (s.is_running) {
+                    btnStart.disabled = true;
+                    btnStop.disabled = false;
+                    crawlerBadge.innerHTML = `<span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span> <span class="text-emerald-400 font-semibold">CRAWLING ACTIVE</span>`;
+                } else {
+                    btnStart.disabled = false;
+                    btnStop.disabled = true;
+                    crawlerBadge.innerHTML = `<span class="h-2 w-2 rounded-full bg-slate-500"></span> IDLE`;
+                }
+            } catch (e) {
+                console.error("Status check error:", e);
+            }
+        }
+
+        async function fetchLogs() {
+            try {
+                const res = await fetch('/api/logs');
+                const data = await res.json();
+                const term = document.getElementById('terminal-window');
+                if (data.logs.length > 0) {
+                    term.innerHTML = data.logs.map(line => `<div>${line}</div>`).join('');
+                    term.scrollTop = term.scrollHeight;
+                }
+            } catch (e) {}
+        }
+
+        async function fetchHistory() {
+            try {
+                const res = await fetch('/api/history');
+                const data = await res.json();
+                const tbody = document.getElementById('history-tbody');
+                if (data.runs.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">No crawl runs recorded yet.</td></tr>`;
+                    return;
+                }
+                tbody.innerHTML = data.runs.map(r => {
+                    const statusColor = r.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                        r.status === 'RUNNING' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+                    return `
+                        <tr class="hover:bg-slate-800/30 transition">
+                            <td class="p-3 font-mono font-semibold">#${r.id}</td>
+                            <td class="p-3 text-slate-400">${r.started_at ? r.started_at.slice(0, 19).replace('T', ' ') : '-'}</td>
+                            <td class="p-3 text-slate-400">${r.finished_at ? r.finished_at.slice(0, 19).replace('T', ' ') : '-'}</td>
+                            <td class="p-3"><span class="px-2 py-0.5 rounded text-[11px] font-semibold border ${statusColor}">${r.status}</span></td>
+                            <td class="p-3 font-semibold text-white">${r.listings_count.toLocaleString()}</td>
+                            <td class="p-3 text-slate-400">${r.pages_done} / ${r.total_pages}</td>
+                            <td class="p-3 text-right space-x-2">
+                                <a href="/download/aqar_riyadh_city_53cols.xlsx" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition">
+                                    <i class="fa-solid fa-file-excel"></i> XLSX
+                                </a>
+                                <a href="/download/aqar_riyadh_city_53cols.csv" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 transition">
+                                    <i class="fa-solid fa-file-csv"></i> CSV
+                                </a>
+                                <a href="/download/aqar_riyadh_city.db" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 transition">
+                                    <i class="fa-solid fa-database"></i> DB
+                                </a>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {}
+        }
+
+        async function startCrawler() {
+            await fetch('/api/start', { method: 'POST' });
+            refreshData();
+        }
+
+        async function stopCrawler() {
+            await fetch('/api/stop', { method: 'POST' });
+            refreshData();
+        }
+
+        async function exportExcel() {
+            await fetch('/api/export', { method: 'POST' });
+            alert("Excel export started in background! Check terminal logs.");
+            refreshData();
+        }
+
+        function refreshData() {
+            fetchReadiness();
+            fetchStatus();
+            fetchLogs();
+            fetchHistory();
+        }
+
+        // Initialize and poll
+        refreshData();
+        setInterval(fetchStatus, 2500);
+        setInterval(fetchLogs, 3000);
+        setInterval(fetchHistory, 10000);
+    </script>
+</body>
+</html>
